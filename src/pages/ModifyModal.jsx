@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import JobSnapshotDetails from './JobSnapshotDetails';
 
+const API_URL = import.meta.env.VITE_API_URL || "https://final-crm-backend.onrender.com/api";
+
 const getSafeDate = (dateVal) => {
     if (!dateVal) return "";
     const val = dateVal.$date || dateVal;
@@ -57,8 +59,8 @@ const ModifyModal = ({ record, type, onClose, onSave }) => {
             setHistoryLoading(true);
             try {
                 const endpoint = type === 'user' 
-                    ? `/api/crm/user-history/${record._id}` 
-                    : `/api/crm/application-history/${record._id}`;
+                    ? `${API_URL}/crm/user-history/${record._id}` 
+                    : `${API_URL}/crm/application-history/${record._id}`;
                 const response = await axios.get(endpoint);
                 setHistory(response.data);
             } catch (error) {
@@ -75,8 +77,8 @@ const ModifyModal = ({ record, type, onClose, onSave }) => {
             if (type === 'user' || (!record.targetCountry || !record.targetJobRole)) {
                 try {
                     const [countriesRes, jobRolesRes] = await Promise.all([
-                        axios.get('/api/crm/countries'),
-                        axios.get('/api/crm/job-roles')
+                        axios.get(`${API_URL}/crm/countries`),
+                        axios.get(`${API_URL}/crm/job-roles`)
                     ]);
                     setCountriesList(countriesRes.data);
                     setJobRolesList(jobRolesRes.data);
@@ -318,7 +320,7 @@ const ModifyModal = ({ record, type, onClose, onSave }) => {
                                         onChange={(e) => setGender(e.target.value)}
                                         disabled={!!record.gender}
                                     >
-                                        <option value="">Select</option>
+                                        <option value="">M|F</option>
                                         <option value="male">Male</option>
                                         <option value="female">Female</option>
                                         <option value="other">Other</option>

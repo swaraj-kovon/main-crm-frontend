@@ -3,6 +3,8 @@ import axios from 'axios';
 import ModifyModal from './ModifyModal';
 import { supabase } from './supabaseClient';
 
+const API_URL = import.meta.env.VITE_API_URL || "https://final-crm-backend.onrender.com/api";
+
 const formatDate = (d) => {
   if (!d) return '';
   const val = d.$date || d;
@@ -81,7 +83,7 @@ const UserLevelFlow = () => {
         assignee: filterAssignee,
         missingDetails: filterMissingDetails,
       };
-      const response = await axios.get('/api/crm/user-level', { params });
+      const response = await axios.get(`${API_URL}/crm/user-level`, { params });
       const { data: responseData, total } = response.data;
       const initializedData = responseData.map(u => ({
         ...u,
@@ -117,7 +119,7 @@ const UserLevelFlow = () => {
 
     try {
       // Update CRM API
-      await axios.post('/api/crm/crm-update', {
+      await axios.post(`${API_URL}/crm/crm-update`, {
         userId: user._id,
         assignee: assignee
       });
@@ -150,7 +152,7 @@ const UserLevelFlow = () => {
       setData(prev => prev.map(u => u._id === userId ? { ...u, ...payload } : u));
       
       // Assuming standard user update endpoint exists
-      await axios.patch(`/api/users/${userId}`, payload);
+      await axios.patch(`${API_URL}/users/${userId}`, payload);
 
       // Sync to Supabase (user_profiles)
       const sbPayload = { user_id: userId, updated_at: new Date().toISOString(), ...payload };
@@ -195,7 +197,7 @@ const UserLevelFlow = () => {
     }));
 
     try {
-      await axios.post('/api/crm/crm-update', {
+      await axios.post(`${API_URL}/crm/crm-update`, {
         userId: modifiedUser._id,
         callDisposition: modifiedUser.tempDisposition,
         notes: modifiedUser.tempNotes,
@@ -236,7 +238,7 @@ const UserLevelFlow = () => {
       };
 
       if (Object.keys(userPayload).length > 0) {
-        await axios.patch(`/api/users/${modifiedUser._id}`, userPayload);
+        await axios.patch(`${API_URL}/users/${modifiedUser._id}`, userPayload);
       }
       
       // Upsert to Supabase
@@ -279,7 +281,7 @@ const UserLevelFlow = () => {
         assignee: filterAssignee,
         missingDetails: filterMissingDetails,
       };
-      const response = await axios.get('/api/crm/user-level', { params });
+      const response = await axios.get(`${API_URL}/crm/user-level`, { params });
       const { data: responseData } = response.data;
       
       const allData = responseData.map(u => ({
@@ -529,7 +531,7 @@ const UserLevelFlow = () => {
                     onChange={(e) => handleInlineUpdate(user._id, 'gender', e.target.value)}
                     defaultValue=""
                   >
-                    <option value="" disabled>Select</option>
+                    <option value="" disabled>M|F</option>
                     <option value="male">Male</option>
                     <option value="female">Female</option>
                     <option value="other">Other</option>
