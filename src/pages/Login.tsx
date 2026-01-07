@@ -1,18 +1,22 @@
-import { useState, FormEvent } from "react";
-import { supabase } from "../supabaseClient";
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { supabase } from "./supabaseClient";
 
-export const Login = () => {
+const Login = () => {
   const [isSignUp, setIsSignUp] = useState(false);
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState("");
+  const navigate = useNavigate();
 
-  const handleSubmit = async (e: FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError('');
+    setMessage('');
     setLoading(true);
-    setMessage("");
-
+    
     try {
       if (isSignUp) {
         // Domain restriction check
@@ -26,112 +30,65 @@ export const Login = () => {
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
-        // Navigation is handled automatically by AppRoutes when session state changes
+        
+        // Maintain existing app logic
+        localStorage.setItem('isAuthenticated', 'true');
+        navigate('/');
       }
-    } catch (error: any) {
-      setMessage(error.message || "An error occurred");
+    } catch (err: any) {
+      setError(err.message || "An error occurred");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div style={{
-      display: "flex",
-      justifyContent: "center",
-      alignItems: "center",
-      minHeight: "100vh",
-      backgroundColor: "#f3f4f6",
-      fontFamily: "sans-serif"
-    }}>
-      <div style={{
-        background: "white",
-        padding: "40px",
-        borderRadius: "12px",
-        boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
-        width: "100%",
-        maxWidth: "400px"
-      }}>
-        <h2 style={{ textAlign: "center", marginBottom: "24px", color: "#333" }}>
-          {isSignUp ? "Create an Account" : "Welcome Back"}
-        </h2>
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#f3f4f6' }}>
+      <div style={{ maxWidth: '400px', width: '100%', padding: '2rem', backgroundColor: 'white', borderRadius: '8px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}>
+        <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', textAlign: 'center', marginBottom: '1.5rem', color: '#111827' }}>{isSignUp ? "Create an Account" : "Sign in to CRM"}</h2>
         
-        {message && (
-          <div style={{ marginBottom: "16px", padding: "10px", borderRadius: "6px", background: message.includes("Success") ? "#d1fae5" : "#fee2e2", color: message.includes("Success") ? "#065f46" : "#991b1b", fontSize: "14px" }}>
-            {message}
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-          <div>
-            <label style={{ display: "block", marginBottom: "8px", fontSize: "14px", color: "#666" }}>Email</label>
+        {error && <div style={{ marginBottom: '1rem', padding: '0.5rem', backgroundColor: '#fee2e2', color: '#991b1b', borderRadius: '4px', textAlign: 'center', fontSize: '0.875rem' }}>{error}</div>}
+        {message && <div style={{ marginBottom: '1rem', padding: '0.5rem', backgroundColor: '#d1fae5', color: '#065f46', borderRadius: '4px', textAlign: 'center', fontSize: '0.875rem' }}>{message}</div>}
+        
+        <form onSubmit={handleLogin}>
+          <div style={{ marginBottom: '1rem' }}>
+            <label htmlFor="email" style={{ display: 'block', marginBottom: '0.5rem', color: '#374151' }}>Email</label>
             <input
+              id="email"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              style={{
-                width: "100%",
-                padding: "10px",
-                borderRadius: "6px",
-                border: "1px solid #ddd",
-                fontSize: "16px",
-                boxSizing: "border-box"
-              }}
+              style={{ width: '100%', padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '4px' }}
             />
           </div>
           
-          <div>
-            <label style={{ display: "block", marginBottom: "8px", fontSize: "14px", color: "#666" }}>Password</label>
+          <div style={{ marginBottom: '1.5rem' }}>
+            <label htmlFor="password" style={{ display: 'block', marginBottom: '0.5rem', color: '#374151' }}>Password</label>
             <input
+              id="password"
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              style={{
-                width: "100%",
-                padding: "10px",
-                borderRadius: "6px",
-                border: "1px solid #ddd",
-                fontSize: "16px",
-                boxSizing: "border-box"
-              }}
+              style={{ width: '100%', padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '4px' }}
             />
           </div>
-
-          <button
-            type="submit"
+          
+          <button 
+            type="submit" 
             disabled={loading}
-            style={{
-              background: loading ? "#93c5fd" : "#3b82f6",
-              color: "white",
-              padding: "12px",
-              borderRadius: "6px",
-              border: "none",
-              fontSize: "16px",
-              fontWeight: "600",
-              cursor: loading ? "not-allowed" : "pointer",
-              marginTop: "8px",
-              transition: "background 0.2s"
-            }}
+            style={{ width: '100%', padding: '0.75rem', backgroundColor: loading ? '#93c5fd' : '#2563eb', color: 'white', border: 'none', borderRadius: '4px', cursor: loading ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}
           >
             {loading ? "Processing..." : (isSignUp ? "Sign Up" : "Sign In")}
           </button>
         </form>
 
-        <div style={{ marginTop: "24px", textAlign: "center", fontSize: "14px", color: "#666" }}>
+        <div style={{ marginTop: '1.5rem', textAlign: 'center', fontSize: '0.875rem', color: '#666' }}>
           {isSignUp ? "Already have an account? " : "Don't have an account? "}
           <button
-            onClick={() => setIsSignUp(!isSignUp)}
-            style={{
-              background: "none",
-              border: "none",
-              color: "#3b82f6",
-              cursor: "pointer",
-              fontWeight: "600",
-              padding: 0,
-              font: "inherit"
-            }}
+            onClick={() => { setIsSignUp(!isSignUp); setError(''); setMessage(''); }}
+            style={{ background: 'none', border: 'none', color: '#2563eb', cursor: 'pointer', fontWeight: 'bold', padding: 0 }}
           >
             {isSignUp ? "Sign In" : "Sign Up"}
           </button>
@@ -140,3 +97,5 @@ export const Login = () => {
     </div>
   );
 };
+
+export default Login;

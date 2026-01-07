@@ -29,48 +29,14 @@ import {
   fetchTotalTicketsTrend, 
   fetchTotalFeedsTrend 
 } from "../services/insights.api";
-import { Layout } from "../ui/layout";
-
-const LiveIndicator = () => (
-  <div style={{
-    position: "fixed",
-    top: 20,
-    right: 20,
-    display: "flex",
-    alignItems: "center",
-    gap: 8,
-    zIndex: 9999,
-    background: "white",
-    padding: "6px 12px",
-    borderRadius: 20,
-    boxShadow: "0 2px 10px rgba(0,0,0,0.1)",
-    border: "1px solid #f0f0f0"
-  }}>
-    <style>
-      {`
-        @keyframes pulse {
-          0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7); }
-          70% { box-shadow: 0 0 0 6px rgba(34, 197, 94, 0); }
-          100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
-        }
-      `}
-    </style>
-    <div style={{
-      width: 10,
-      height: 10,
-      backgroundColor: "#22c55e",
-      borderRadius: "50%",
-      animation: "pulse 2s infinite"
-    }} />
-    <span style={{ color: "#22c55e", fontWeight: "bold", fontSize: 12, letterSpacing: 1 }}>LIVE</span>
-  </div>
-);
+import { supabase } from "./supabaseClient";
 
 export const Dashboard = () => {
   const [data, setData] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [dateRange, setDateRange] = useState({ start: "", end: "" });
+  const [currentUser, setCurrentUser] = useState<any>(null);
 
   const loadInsights = useCallback(async () => {
     try {
@@ -91,9 +57,16 @@ export const Dashboard = () => {
     return () => clearInterval(interval);
   }, [loadInsights]);
 
+  useEffect(() => {
+    const getUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      setCurrentUser(user);
+    };
+    getUser();
+  }, []);
+
   return (
-    <Layout>
-      <LiveIndicator />
+    <>
       <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 20, gap: 12, alignItems: "center" }}>
         <span style={{ fontSize: 14, fontWeight: 500, color: "#666" }}>Date Range:</span>
         <input 
@@ -110,9 +83,35 @@ export const Dashboard = () => {
         />
         <button 
           onClick={() => setDateRange({ start: "", end: "" })}
-          style={{ padding: "8px 16px", borderRadius: 6, border: "none", background: "#22c55e", color: "white", cursor: "pointer", fontWeight: 600, fontSize: 14 }}
+          style={{ 
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            background: "white",
+            padding: "6px 12px",
+            borderRadius: 20,
+            boxShadow: "0 2px 10px rgba(0,0,0,0.1)",
+            border: "1px solid #f0f0f0",
+            cursor: "pointer"
+          }}
         >
-          Live
+          <style>
+            {`
+              @keyframes pulse {
+                0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7); }
+                70% { box-shadow: 0 0 0 6px rgba(34, 197, 94, 0); }
+                100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+              }
+            `}
+          </style>
+          <div style={{
+            width: 10,
+            height: 10,
+            backgroundColor: "#22c55e",
+            borderRadius: "50%",
+            animation: "pulse 2s infinite"
+          }} />
+          <span style={{ color: "#22c55e", fontWeight: "bold", fontSize: 12, letterSpacing: 1 }}>LIVE</span>
         </button>
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(400px, 1fr))", gap: "24px" }}>
@@ -164,9 +163,9 @@ export const Dashboard = () => {
 
         <TopApplicantsSummaryCard dateRange={dateRange} />
 
-        <UserApplicationListCard title="Users Who Applied" filter="applied" dateRange={dateRange} />
+        <UserApplicationListCard title="Users Who Applied" filter="applied" dateRange={dateRange} currentUser={currentUser} />
 
-        <UserApplicationListCard title="Users Who Have Not Applied" filter="not_applied" dateRange={dateRange} />
+        <UserApplicationListCard title="Users Who Have Not Applied" filter="not_applied" dateRange={dateRange} currentUser={currentUser} />
 
         <JobsByCompanyCard dateRange={dateRange} />
 
@@ -182,12 +181,12 @@ export const Dashboard = () => {
 
         <TopCountriesComparisonCard dateRange={dateRange} />
 
-        <UserFeedEngagementCard dateRange={dateRange} />
+        <UserFeedEngagementCard dateRange={dateRange} currentUser={currentUser} />
 
         <TopCommunitiesCard dateRange={dateRange} />
 
         <IncompleteProfilesCard dateRange={dateRange} />
       </div>
-    </Layout>
+    </>
   );
 };
