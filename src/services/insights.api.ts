@@ -1,5 +1,4 @@
-// const API_URL = "https://backend-dashboard-kni2.onrender.com/api";
-const API_URL = "https://final-crm-backend.onrender.com/api";
+const API_URL = import.meta.env.VITE_API_URL || "https://final-crm-backend.onrender.com/api";
 
 export const fetchTotalUsers = async (dates?: {start: string, end: string}) => {
   const res = await fetch(`${API_URL}/insights/total-users?startDate=${dates?.start || ''}&endDate=${dates?.end || ''}`);
