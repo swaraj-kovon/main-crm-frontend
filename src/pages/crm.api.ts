@@ -1,4 +1,4 @@
-const API_URL = "http://localhost:4000/api/crm";
+const API_URL = "https://final-crm-backend.onrender.com/api/crm";
 
 export const fetchUserLevelData = async (params: any) => {
   const queryString = new URLSearchParams(params).toString();

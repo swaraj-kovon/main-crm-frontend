@@ -21,7 +21,7 @@ const Dashboard = DashboardModule.default || DashboardModule.Dashboard || (() =>
 const SafeAuthProvider = ({ children }: { children: any }) => <>{children}</>;
 
 // Set the global base URL for axios to point to your backend
-axios.defaults.baseURL = 'http://localhost:4000';
+axios.defaults.baseURL = 'https://final-crm-backend.onrender.com';
 
 // Protected Route Component
 const PrivateRoute = ({ children }: { children: JSX.Element }) => {
