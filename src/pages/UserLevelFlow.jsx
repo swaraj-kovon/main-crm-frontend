@@ -2,8 +2,7 @@ import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import ModifyModal from './ModifyModal';
 import { supabase } from './supabaseClient';
-
-const API_URL = import.meta.env.VITE_API_URL || "https://final-crm-backend.onrender.com/api";
+import { API_URL, APP_VERSION } from '../config';
 
 const formatDate = (d) => {
   if (!d) return '';
@@ -43,6 +42,11 @@ const UserLevelFlow = () => {
   const [lastUpdated, setLastUpdated] = useState(new Date());
   const [currentUser, setCurrentUser] = useState(null);
   const [assignees, setAssignees] = useState([]);
+
+  useEffect(() => {
+    // Debugging log for Production
+    console.log(`[UserLevelFlow] Loaded. Version: ${APP_VERSION}`);
+  }, []);
 
   useEffect(() => {
     fetchData();

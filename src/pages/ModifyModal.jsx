@@ -1,8 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import JobSnapshotDetails from './JobSnapshotDetails';
-
-const API_URL = import.meta.env.VITE_API_URL || "https://final-crm-backend.onrender.com/api";
+import { API_URL } from '../config';
 
 const getSafeDate = (dateVal) => {
     if (!dateVal) return "";

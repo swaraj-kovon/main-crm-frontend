@@ -1,5 +1,4 @@
-const API_URL = import.meta.env.VITE_API_URL || "https://final-crm-backend.onrender.com/api";
-// const API_URL = "http://localhost:4000/api";
+import { API_URL } from '../config';
 
 export const fetchTotalUsers = async (dates?: {start: string, end: string}) => {
   const res = await fetch(`${API_URL}/insights/total-users?startDate=${dates?.start || ''}&endDate=${dates?.end || ''}`);
