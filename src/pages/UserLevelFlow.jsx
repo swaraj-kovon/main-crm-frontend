@@ -3,6 +3,12 @@ import axios from 'axios';
 import ModifyModal from './ModifyModal';
 import { supabase } from './supabaseClient';
 
+const formatDate = (d) => {
+  if (!d) return '';
+  const val = d.$date || d;
+  return new Date(val).toLocaleDateString();
+};
+
 const DISPOSITION_OPTIONS = [
   "CALL_ATTEMPT_NO_ANSWER", "CALL_ATTEMPT_NOT_REACHABLE", "CALL_ATTEMPT_WRONG_NUMBER",
   "CALL_ATTEMPT_BUSY_DECLINED", "VOICEMAIL_SENT", "FOLLOW_UP_SCHEDULED",
@@ -124,6 +130,41 @@ const UserLevelFlow = () => {
     }
   };
 
+  const handleInlineUpdate = async (userId, field, value) => {
+    if (!value) return;
+    let payload = {};
+    try {
+      if (field === 'skills') payload = { skills: value.split(',').map(s => s.trim()) };
+      else if (field === 'language') {
+        const [mother, others] = value.split('|');
+        payload = { language: { motherTongue: mother?.trim(), other: others ? others.split(',').map(s => s.trim()) : [] } };
+      }
+      else if (field === 'dob') payload = { dob: value };
+      else if (field === 'gender') payload = { gender: value };
+      else if (field === 'location') {
+        const [city, state, country] = value.split(',');
+        payload = { location: { city: city?.trim(), state: state?.trim(), country: country?.trim() } };
+      }
+
+      // Optimistic update
+      setData(prev => prev.map(u => u._id === userId ? { ...u, ...payload } : u));
+      
+      // Assuming standard user update endpoint exists
+      await axios.patch(`/api/users/${userId}`, payload);
+
+      // Sync to Supabase (user_profiles)
+      const sbPayload = { user_id: userId, updated_at: new Date().toISOString(), ...payload };
+      // Map camelCase to snake_case for specific fields if necessary, but here payload keys match what we want except exp
+      // Note: payload keys are 'skills', 'language', 'dob', 'gender', 'location', 'education', 'experience'
+      // These match the SQL columns defined above.
+      await supabase.from('user_profiles').upsert(sbPayload);
+    } catch (error) {
+      console.error("Update failed", error);
+      alert("Failed to update user details.");
+      fetchData();
+    }
+  };
+
   const handleSaveFromModal = async (modifiedUser) => {
     // Optimistic UI Update
     setData(prev => prev.map(u => {
@@ -138,6 +179,16 @@ const UserLevelFlow = () => {
           fullName: modifiedUser.fullName,
           targetCountry: modifiedUser.targetCountry.name || u.targetCountry,
           targetJobRole: modifiedUser.targetJobRole.name || u.targetJobRole,
+          // Update profile fields
+          skills: modifiedUser.skills,
+          language: modifiedUser.language,
+          education: modifiedUser.education,
+          experience: modifiedUser.experience,
+          dob: modifiedUser.dob,
+          gender: modifiedUser.gender,
+          location: modifiedUser.location,
+          internationalExp: modifiedUser.internationalExp,
+          domesticExp: modifiedUser.domesticExp
         };
       }
       return u;
@@ -148,14 +199,50 @@ const UserLevelFlow = () => {
         userId: modifiedUser._id,
         callDisposition: modifiedUser.tempDisposition,
         notes: modifiedUser.tempNotes,
-        nextCallDate: modifiedUser.tempNextCallDate,
+        nextCallDate: modifiedUser.tempNextCallDate || null,
         fullName: modifiedUser.fullName,
         targetCountry: modifiedUser.targetCountry,
         targetJobRole: modifiedUser.targetJobRole,
       });
       alert('Saved successfully');
-      
+
+      // Also save User Profile details if they were modified (and originally empty)
       const originalUser = data.find(u => u._id === modifiedUser._id);
+      const userPayload = {};
+      
+      if (modifiedUser.skills?.length && (!originalUser.skills || !originalUser.skills.length)) userPayload.skills = modifiedUser.skills;
+      if (modifiedUser.language?.motherTongue && !originalUser.language?.motherTongue) userPayload.language = modifiedUser.language;
+      if (modifiedUser.education?.length && (!originalUser.education || !originalUser.education.length)) userPayload.education = modifiedUser.education;
+      if (modifiedUser.experience?.length && (!originalUser.experience || !originalUser.experience.length)) userPayload.experience = modifiedUser.experience;
+      if (modifiedUser.dob && !originalUser.dob) userPayload.dob = modifiedUser.dob;
+      if (modifiedUser.gender && !originalUser.gender) userPayload.gender = modifiedUser.gender;
+      if (modifiedUser.location?.city && !originalUser.location?.city) userPayload.location = modifiedUser.location;
+      if ((modifiedUser.internationalExp || modifiedUser.internationalExp === 0) && (originalUser.internationalExp === undefined || originalUser.internationalExp === null)) userPayload.internationalExp = modifiedUser.internationalExp;
+      if ((modifiedUser.domesticExp || modifiedUser.domesticExp === 0) && (originalUser.domesticExp === undefined || originalUser.domesticExp === null)) userPayload.domesticExp = modifiedUser.domesticExp;
+
+      // Sync Profile Data to Supabase
+      const sbProfilePayload = {
+        user_id: modifiedUser._id,
+        skills: modifiedUser.skills,
+        language: modifiedUser.language,
+        education: modifiedUser.education,
+        experience: modifiedUser.experience,
+        dob: modifiedUser.dob || null,
+        gender: modifiedUser.gender,
+        location: modifiedUser.location,
+        international_exp: modifiedUser.internationalExp ?? null,
+        domestic_exp: modifiedUser.domesticExp ?? null,
+        updated_at: new Date().toISOString()
+      };
+
+      if (Object.keys(userPayload).length > 0) {
+        await axios.patch(`/api/users/${modifiedUser._id}`, userPayload);
+      }
+      
+      // Upsert to Supabase
+      const { error: sbError } = await supabase.from('user_profiles').upsert(sbProfilePayload);
+      if (sbError) console.error("Error syncing to Supabase:", sbError);
+      
       const needsRefetch = 
         (modifiedUser.fullName && modifiedUser.fullName !== originalUser?.fullName) ||
         (modifiedUser.targetCountry.name && modifiedUser.targetCountry.name !== originalUser?.targetCountry) ||
@@ -326,13 +413,20 @@ const UserLevelFlow = () => {
         <button onClick={downloadCSV} className="bg-gray-800 text-white px-4 py-2 rounded hover:bg-gray-700 ml-auto">Download CSV</button>
       </div>
 
+      <div className="overflow-x-auto">
       <table className="min-w-full bg-white border border-gray-300">
         <thead>
           <tr className="bg-gray-100">
             <th className="p-2 border w-16">S.No</th>
-            <th className="p-2 border">User ID</th>
-            <th className="p-2 border">Phone Number</th>
-            <th className="p-2 border">Full Name</th>
+            <th className="p-2 border">Created At</th>
+            <th className="p-2 border">User Info</th>
+            <th className="p-2 border">Skills</th>
+            <th className="p-2 border">Languages</th>
+            <th className="p-2 border">Education</th>
+            <th className="p-2 border">Experience</th>
+            <th className="p-2 border">DOB</th>
+            <th className="p-2 border">Gender</th>
+            <th className="p-2 border">Location</th>
             <th className="p-2 border">Applied?</th>
             <th className="p-2 border">Latest App Date</th>
             <th className="p-2 border">Target Country</th>
@@ -344,9 +438,118 @@ const UserLevelFlow = () => {
           {data.map((user, index) => (
             <tr key={user._id} className="hover:bg-gray-50">
               <td className="p-2 border text-center">{(currentPage - 1) * 100 + index + 1}</td>
-              <td className="p-2 border text-xs font-mono">{user._id}</td>
-              <td className="p-2 border">{user.phoneNumber}</td>
-              <td className="p-2 border">{user.fullName}</td>
+              <td className="p-2 border text-sm">
+                <div>{formatDate(user.createdAt) || '-'}</div>
+                <div className="text-xs text-gray-500">
+                  {user.createdAt ? new Date(user.createdAt.$date || user.createdAt).toLocaleTimeString() : ''}
+                </div>
+              </td>
+              <td className="p-2 border">
+                <div className="font-semibold">{user.fullName}</div>
+                <div>{user.phoneNumber}</div>
+                <div className="text-xs text-gray-500 font-mono">UID: {user._id}</div>
+              </td>
+              
+              {/* Skills */}
+              <td className="p-2 border text-sm">
+                {user.skills && user.skills.length > 0 ? (
+                  user.skills.join(', ')
+                ) : (
+                  <input 
+                    className="border rounded p-1 w-full text-xs" 
+                    placeholder="Add Skills (comma sep)" 
+                    onBlur={(e) => handleInlineUpdate(user._id, 'skills', e.target.value)}
+                  />
+                )}
+              </td>
+
+              {/* Languages */}
+              <td className="p-2 border text-sm">
+                {user.language && (user.language.motherTongue || (user.language.other && user.language.other.length > 0)) ? (
+                  <span>{user.language.motherTongue} | {user.language.other?.join(', ')}</span>
+                ) : (
+                  <input 
+                    className="border rounded p-1 w-full text-xs" 
+                    placeholder="Mother | Other1, Other2" 
+                    onBlur={(e) => handleInlineUpdate(user._id, 'language', e.target.value)}
+                  />
+                )}
+              </td>
+
+              {/* Education */}
+              <td className="p-2 border text-sm">
+                {user.education && user.education.length > 0 ? (
+                  user.education.map((e, i) => (
+                    <div key={i} className="mb-2 pb-1 border-b last:border-0">
+                      <div className="font-semibold">{e.institutionName}</div>
+                      <div>{e.degree} {e.fieldOfStudy ? `(${e.fieldOfStudy})` : ''}</div>
+                      <div className="text-xs text-gray-500">{formatDate(e.startDate)} - {formatDate(e.endDate)}</div>
+                    </div>
+                  ))
+                ) : (
+                  <span className="text-gray-400 text-xs italic">No Education</span>
+                )}
+              </td>
+
+              {/* Experience */}
+              <td className="p-2 border text-sm">
+                {user.experience && user.experience.length > 0 ? (
+                  user.experience.map((e, i) => (
+                    <div key={i} className="mb-2 pb-1 border-b last:border-0">
+                      <div className="font-semibold">{e.companyName}</div>
+                      <div>{e.position}</div>
+                      <div className="text-xs text-gray-500">{formatDate(e.startDate)} - {formatDate(e.endDate)}</div>
+                    </div>
+                  ))
+                ) : (
+                  <span className="text-gray-400 text-xs italic">No Experience</span>
+                )}
+              </td>
+
+              {/* DOB */}
+              <td className="p-2 border text-sm">
+                {user.dob ? (
+                  formatDate(user.dob)
+                ) : (
+                  <input 
+                    type="date"
+                    className="border rounded p-1 w-full text-xs" 
+                    onBlur={(e) => handleInlineUpdate(user._id, 'dob', e.target.value)}
+                  />
+                )}
+              </td>
+
+              {/* Gender */}
+              <td className="p-2 border text-sm">
+                {user.gender ? (
+                  user.gender
+                ) : (
+                  <select 
+                    className="border rounded p-1 w-full text-xs"
+                    onChange={(e) => handleInlineUpdate(user._id, 'gender', e.target.value)}
+                    defaultValue=""
+                  >
+                    <option value="" disabled>Select</option>
+                    <option value="male">Male</option>
+                    <option value="female">Female</option>
+                    <option value="other">Other</option>
+                  </select>
+                )}
+              </td>
+
+              {/* Location */}
+              <td className="p-2 border text-sm">
+                {user.location && (user.location.city || user.location.country) ? (
+                  <span>{user.location.city}, {user.location.state}, {user.location.country}</span>
+                ) : (
+                  <input 
+                    className="border rounded p-1 w-full text-xs" 
+                    placeholder="City, State, Country" 
+                    onBlur={(e) => handleInlineUpdate(user._id, 'location', e.target.value)}
+                  />
+                )}
+              </td>
+
               <td className="p-2 border text-center">
                 <span className={`px-2 py-1 rounded ${user.hasApplied ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
                   {user.hasApplied ? 'Y' : 'N'}
@@ -391,6 +594,7 @@ const UserLevelFlow = () => {
           ))}
         </tbody>
       </table>
+      </div>
       <div className="flex justify-center items-center mt-4 gap-4">
         <button 
           onClick={() => setCurrentPage(p => Math.max(p - 1, 1))} 

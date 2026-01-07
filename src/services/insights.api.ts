@@ -1,4 +1,5 @@
 const API_URL = import.meta.env.VITE_API_URL || "https://final-crm-backend.onrender.com/api";
+// const API_URL = "http://localhost:4000/api";
 
 export const fetchTotalUsers = async (dates?: {start: string, end: string}) => {
   const res = await fetch(`${API_URL}/insights/total-users?startDate=${dates?.start || ''}&endDate=${dates?.end || ''}`);
@@ -55,11 +56,54 @@ export const fetchTopApplicantsSummary = async (page = 1, limit: number | 'all' 
   return res.json();
 };
 
+export interface UserLanguage {
+  motherTongue: string;
+  other: string[];
+}
+
+export interface UserLocation {
+  city: string;
+  state: string;
+  country: string;
+}
+
+export interface Education {
+  institutionName: string;
+  degree: string;
+  fieldOfStudy?: string;
+  startDate: string;
+  endDate: string;
+  isOngoing: boolean;
+  _id?: string;
+}
+
+export interface Experience {
+  companyName: string;
+  position: string;
+  employmentType: string;
+  startDate: string;
+  endDate: string;
+  isCurrentJob: boolean;
+  location: string;
+  _id?: string;
+}
+
 export interface UserAppStatus {
   userId: string;
+  createdAt: string;
+  phoneNumber: string;
   fullName: string;
   targetCountry: string;
   targetJobRole: string;
+  skills: string[];
+  language: UserLanguage;
+  education: Education[];
+  experience: Experience[];
+  dob: string;
+  gender: string;
+  location: UserLocation;
+  internationalExp?: number;
+  domesticExp?: number;
 }
 
 export interface UserAppStatusResponse {
@@ -70,6 +114,16 @@ export interface UserAppStatusResponse {
 export const fetchUserApplicationStatus = async (page = 1, limit: number | 'all' = 10, filter: 'applied' | 'not_applied', dates?: {start: string, end: string}): Promise<UserAppStatusResponse> => {
   const res = await fetch(`${API_URL}/insights/users-application-status?page=${page}&limit=${limit}&filter=${filter}&startDate=${dates?.start || ''}&endDate=${dates?.end || ''}`);
   if (!res.ok) throw new Error("Failed to fetch user application status");
+  return res.json();
+};
+
+export const updateUser = async (userId: string, data: any) => {
+  const res = await fetch(`${API_URL}/users/${userId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error("Failed to update user");
   return res.json();
 };
 
