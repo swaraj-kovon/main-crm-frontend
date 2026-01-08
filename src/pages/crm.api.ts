@@ -1,4 +1,5 @@
 const API_URL = "https://final-crm-backend.onrender.com/api/crm";
+const USER_API_URL = "https://final-crm-backend.onrender.com/api/users";
 
 export const fetchUserLevelData = async (params: any) => {
   const queryString = new URLSearchParams(params).toString();
@@ -33,6 +34,12 @@ export const fetchApplicationHistory = async (applicationId: string) => {
 export const fetchUserHistory = async (userId: string) => {
   const res = await fetch(`${API_URL}/user-history/${userId}`);
   if (!res.ok) throw new Error("Failed to fetch history");
+  return res.json();
+};
+
+export const fetchUserDetails = async (userId: string) => {
+  const res = await fetch(`${USER_API_URL}/${userId}`);
+  if (!res.ok) throw new Error("Failed to fetch user details");
   return res.json();
 };
 

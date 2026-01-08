@@ -20,6 +20,90 @@ const DISPOSITION_OPTIONS = [
   "TRAVEL_SCHEDULED", "CANDIDATE_DEPLOYED", "DEPLOYMENT_DELAYED",
 ];
 
+const UserDetailsPopup = ({ userId }) => {
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchUser = async () => {
+      if (!userId) return;
+      setLoading(true);
+      try {
+        let foundUser = null;
+        let page = 1;
+        let hasMore = true;
+        const limit = 500; // Fetch in chunks to avoid timeouts but cover DB dynamically
+
+        while (hasMore && !foundUser) {
+          const response = await axios.get('/api/crm/user-level', { params: { page, limit } });
+          const users = response.data.data || [];
+          const total = response.data.total || 0;
+
+          foundUser = users.find(u => {
+            const uId = (u._id && typeof u._id === 'object' && u._id.$oid) ? u._id.$oid : u._id;
+            return uId === userId;
+          });
+
+          if (foundUser || users.length < limit || (page * limit) >= total) {
+            hasMore = false;
+          } else {
+            page++;
+          }
+        }
+        setUser(foundUser || null);
+      } catch (error) {
+        console.error(`Error fetching user details for ID ${userId}:`, error);
+        setUser(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchUser();
+  }, [userId]);
+
+  if (!userId) return null;
+
+  return (
+    <div className="fixed top-0 bottom-0 w-96 bg-white shadow-2xl z-[80] overflow-hidden flex flex-col border border-gray-200 left-4 2xl:left-auto 2xl:right-[65rem]">
+      <div className="p-4 bg-gray-100 border-b">
+        <h3 className="font-bold text-lg">User Details</h3>
+      </div>
+      <div className="p-4 overflow-y-auto flex-1 text-sm space-y-4">
+        {loading ? <p>Loading...</p> : user ? (
+          <>
+            <div>Full Name: {user.fullName || '-'}</div>
+            <div>Passport: {user.passportNumber || '-'}</div>
+            <div>DOB: {user.dob ? new Date(user.dob.$date || user.dob).toLocaleDateString() : '-'}</div>
+            <div>Gender: {user.gender || '-'}</div>
+            <div>Experience Type: {user.experienceType || '-'}</div>
+            <div>Location: {user.location ? [user.location.city, user.location.state, user.location.country].filter(Boolean).join(', ') : '-'}</div>
+            <div>Secondary Countries: {(user.secondaryCountries || []).map(c => c.name).join(', ') || '-'}</div>
+            <div>Secondary Job Roles: {(user.secondaryJobRoles || []).map(r => r.name).join(', ') || '-'}</div>
+            <div>Skills: {(user.skills || []).join(', ') || '-'}</div>
+            <div>Languages: {user.language ? [user.language.motherTongue, ...(user.language.other || [])].filter(Boolean).join(', ') : '-'}</div>
+            
+            <h4 className="font-semibold mt-4 border-b pb-1">Education</h4>
+            {(user.education || []).length > 0 ? user.education.map((edu, i) => (
+              <div key={i} className="p-2 border rounded bg-gray-50 mt-2">
+                <div className="font-medium">{edu.degree}</div>
+                <div className="text-xs text-gray-500">{edu.institutionName}</div>
+              </div>
+            )) : <p className="text-gray-500">No education info</p>}
+
+            <h4 className="font-semibold mt-4 border-b pb-1">Experience</h4>
+            {(user.experience || []).length > 0 ? user.experience.map((exp, i) => (
+              <div key={i} className="p-2 border rounded bg-gray-50 mt-2">
+                <div className="font-medium">{exp.position}</div>
+                <div className="text-xs text-gray-500">{exp.companyName}</div>
+              </div>
+            )) : <p className="text-gray-500">No experience info</p>}
+          </>
+        ) : <p>User details not found.</p>}
+      </div>
+    </div>
+  );
+};
+
 const ApplicationLevelFlow = () => {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -81,13 +165,33 @@ const ApplicationLevelFlow = () => {
       const response = await axios.get('/api/crm/application-level', { params });
       const { data: responseData, total } = response.data;
       // Initialize local state for inputs with fetched data
-      const initializedData = responseData.map(u => ({
-        ...u,
-        assignee: u.crmData?.assignee || "",
-        tempDisposition: u.crmData?.callDisposition || "",
-        tempNotes: u.crmData?.notes || "",
-        tempNextCallDate: u.crmData?.nextCallDate ? u.crmData.nextCallDate.split('T')[0] : ""
-      }));
+      const initializedData = responseData.map(u => {
+        // Helper to extract ID string from potential EJSON object (e.g. { "$oid": "..." })
+        const getOid = (val) => (val && typeof val === 'object' && val.$oid) ? val.$oid : val;
+        const cleanUserId = getOid(u.userId) || getOid(u.user?._id) || (typeof u.user === 'string' ? u.user : "") || getOid(u._id) || "";
+
+        return {
+          ...u,
+          _id: getOid(u._id), // Ensure the application ID is also a clean string
+          assignee: u.crmData?.assignee || "",
+          tempDisposition: u.crmData?.callDisposition || "",
+          tempNotes: u.crmData?.notes || "",
+          tempNextCallDate: u.crmData?.nextCallDate ? u.crmData.nextCallDate.split('T')[0] : "",
+          // Map user profile fields if they exist in nested user object
+          userId: cleanUserId,
+          passportNumber: u.user?.passportNumber || u.passportNumber || "",
+          dob: u.user?.dob || u.dob || null,
+          gender: u.user?.gender || u.gender || "",
+          experienceType: u.user?.experienceType || u.experienceType || "",
+          location: u.user?.location || u.location || null,
+          secondaryCountries: u.user?.secondaryCountries || u.secondaryCountries || [],
+          secondaryJobRoles: u.user?.secondaryJobRoles || u.secondaryJobRoles || [],
+          skills: u.user?.skills || u.skills || [],
+          language: u.user?.language || u.language || {},
+          education: u.user?.education || u.education || [],
+          experience: u.user?.experience || u.experience || [],
+        };
+      });
 
       let filteredData = initializedData;
       if (filterMissingDetails === 'Yes') {
@@ -267,9 +371,10 @@ const ApplicationLevelFlow = () => {
   return (
     <>
       {isModalOpen && (
-        <div style={{ position: 'relative', zIndex: 9999 }}>
+        <>
+          <UserDetailsPopup userId={selectedAppForModify?.userId} />
           <ModifyModal record={selectedAppForModify} type="application" onClose={() => setIsModalOpen(false)} onSave={handleSaveFromModal}/>
-        </div>
+        </>
       )}
 
     <div className="p-4">

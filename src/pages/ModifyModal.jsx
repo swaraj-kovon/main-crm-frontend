@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import JobSnapshotDetails from './JobSnapshotDetails';
-import { API_URL } from '../config';
 
 const getSafeDate = (dateVal) => {
     if (!dateVal) return "";
@@ -36,19 +35,6 @@ const ModifyModal = ({ record, type, onClose, onSave }) => {
     const [history, setHistory] = useState([]);
     const [historyLoading, setHistoryLoading] = useState(true);
 
-    // New Fields State
-    const [skills, setSkills] = useState(record.skills ? record.skills.join(', ') : "");
-    const [languages, setLanguages] = useState(
-        record.language ? `${record.language.motherTongue || ''} | ${record.language.other?.join(', ') || ''}` : ""
-    );
-    const [education, setEducation] = useState(record.education || []);
-    const [experience, setExperience] = useState(record.experience || []);
-    const [dob, setDob] = useState(getSafeDate(record.dob));
-    const [gender, setGender] = useState(record.gender || "");
-    const [location, setLocation] = useState(record.location ? [record.location.city, record.location.state, record.location.country].filter(Boolean).join(', ') : "");
-    const [internationalExp, setInternationalExp] = useState(record.internationalExp ?? "");
-    const [domesticExp, setDomesticExp] = useState(record.domesticExp ?? "");
-
     const [countriesList, setCountriesList] = useState([]);
     const [jobRolesList, setJobRolesList] = useState([]);
 
@@ -58,8 +44,8 @@ const ModifyModal = ({ record, type, onClose, onSave }) => {
             setHistoryLoading(true);
             try {
                 const endpoint = type === 'user' 
-                    ? `${API_URL}/crm/user-history/${record._id}` 
-                    : `${API_URL}/crm/application-history/${record._id}`;
+                    ? `/api/crm/user-history/${record._id}` 
+                    : `/api/crm/application-history/${record._id}`;
                 const response = await axios.get(endpoint);
                 setHistory(response.data);
             } catch (error) {
@@ -76,8 +62,8 @@ const ModifyModal = ({ record, type, onClose, onSave }) => {
             if (type === 'user' || (!record.targetCountry || !record.targetJobRole)) {
                 try {
                     const [countriesRes, jobRolesRes] = await Promise.all([
-                        axios.get(`${API_URL}/crm/countries`),
-                        axios.get(`${API_URL}/crm/job-roles`)
+                        axios.get(`/api/crm/countries`),
+                        axios.get(`/api/crm/job-roles`)
                     ]);
                     setCountriesList(countriesRes.data);
                     setJobRolesList(jobRolesRes.data);
@@ -87,42 +73,9 @@ const ModifyModal = ({ record, type, onClose, onSave }) => {
         fetchDropdownData();
     }, [record.targetCountry, record.targetJobRole, type]);
 
-    // Handlers for Array Fields
-    const handleEducationChange = (index, field, value) => {
-        const newEdu = [...education];
-        newEdu[index] = { ...newEdu[index], [field]: value };
-        setEducation(newEdu);
-    };
-    const addEducation = () => setEducation([...education, { institutionName: "", degree: "", fieldOfStudy: "", startDate: "", endDate: "" }]);
-    const removeEducation = (index) => setEducation(education.filter((_, i) => i !== index));
-
-    const handleExperienceChange = (index, field, value) => {
-        const newExp = [...experience];
-        newExp[index] = { ...newExp[index], [field]: value };
-        setExperience(newExp);
-    };
-    const addExperience = () => setExperience([...experience, { companyName: "", position: "", startDate: "", endDate: "" }]);
-    const removeExperience = (index) => setExperience(experience.filter((_, i) => i !== index));
-
-
     const handleInternalSave = () => {
         const selectedCountry = countriesList.find(c => c.name === country);
         const selectedJobRole = jobRolesList.find(r => r.title === jobRole);
-
-        // Parse new fields back to object structure
-        const parsedSkills = skills ? skills.split(',').map(s => s.trim()).filter(Boolean) : [];
-        
-        let parsedLanguage = { motherTongue: "", other: [] };
-        if (languages) {
-            const [mother, others] = languages.split('|');
-            parsedLanguage = { 
-                motherTongue: mother?.trim() || "", 
-                other: others ? others.split(',').map(s => s.trim()).filter(Boolean) : [] 
-            };
-        }
-
-        const [city, state, countryLoc] = location ? location.split(',').map(s => s.trim()) : ["", "", ""];
-        const parsedLocation = { city, state, country: countryLoc };
 
         onSave({
             ...record,
@@ -136,15 +89,6 @@ const ModifyModal = ({ record, type, onClose, onSave }) => {
             targetJobRole: selectedJobRole 
                 ? { id: selectedJobRole._id, name: selectedJobRole.title } 
                 : { name: jobRole }, // Fallback for custom entry
-            skills: parsedSkills,
-            language: parsedLanguage,
-            education: education,
-            experience: experience,
-            dob: dob,
-            gender: gender,
-            location: parsedLocation,
-            internationalExp: internationalExp === "" ? null : Number(internationalExp),
-            domesticExp: domesticExp === "" ? null : Number(domesticExp)
         });
         onClose();
     };
@@ -152,8 +96,8 @@ const ModifyModal = ({ record, type, onClose, onSave }) => {
     if (!record) return null;
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-40 flex justify-end" onClick={onClose} >
-            <div className={`h-full w-full ${type === 'application' ? 'max-w-5xl' : 'max-w-lg'} bg-gray-100 shadow-xl z-50`} onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-[60] flex justify-end" onClick={onClose} >
+            <div className={`h-full w-full ${type === 'application' ? 'max-w-5xl' : 'max-w-lg'} bg-gray-100 shadow-xl z-[70]`} onClick={e => e.stopPropagation()}>
                 <div className="flex h-full">
                     {/* Left Column: Form & History */}
                     <div className={`${type === 'application' ? 'w-1/2' : 'w-full'} p-6 flex flex-col bg-white overflow-y-auto`}>
@@ -213,130 +157,6 @@ const ModifyModal = ({ record, type, onClose, onSave }) => {
                                 </div>
                             </div>
 
-                            {/* New Profile Fields */}
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Skills (comma separated)</label>
-                                <input 
-                                    type="text" 
-                                    className={`w-full p-2 border rounded ${record.skills && record.skills.length > 0 ? 'bg-gray-100' : ''}`}
-                                    value={skills} 
-                                    onChange={(e) => setSkills(e.target.value)} 
-                                    disabled={record.skills && record.skills.length > 0}
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Languages (Mother | Other1, Other2)</label>
-                                <input 
-                                    type="text" 
-                                    className={`w-full p-2 border rounded ${record.language && (record.language.motherTongue || record.language.other?.length) ? 'bg-gray-100' : ''}`}
-                                    value={languages} 
-                                    onChange={(e) => setLanguages(e.target.value)}
-                                    disabled={!!(record.language && (record.language.motherTongue || (record.language.other && record.language.other.length > 0)))}
-                                />
-                            </div>
-
-                            {/* Education Section */}
-                            <div>
-                                <div className="flex justify-between items-center mb-2">
-                                    <label className="block text-sm font-medium text-gray-700">Education</label>
-                                    <button onClick={addEducation} className="text-xs bg-blue-100 text-blue-600 px-2 py-1 rounded">+ Add</button>
-                                </div>
-                                {education.map((edu, idx) => (
-                                    <div key={idx} className="border p-3 rounded mb-2 bg-gray-50">
-                                        {!edu._id && (
-                                            <div className="flex justify-end mb-1">
-                                                <button onClick={() => removeEducation(idx)} className="text-red-500 text-xs hover:underline">Remove</button>
-                                            </div>
-                                        )}
-                                        <div className="grid grid-cols-2 gap-2 mb-2">
-                                            <input placeholder="Institution Name" className={`p-1 border rounded text-sm ${edu._id ? 'bg-gray-200 text-gray-500' : ''}`} value={edu.institutionName} onChange={e => handleEducationChange(idx, 'institutionName', e.target.value)} disabled={!!edu._id} />
-                                            <input placeholder="Degree" className={`p-1 border rounded text-sm ${edu._id ? 'bg-gray-200 text-gray-500' : ''}`} value={edu.degree} onChange={e => handleEducationChange(idx, 'degree', e.target.value)} disabled={!!edu._id} />
-                                        </div>
-                                        <div className="mb-2">
-                                            <input placeholder="Field of Study" className={`w-full p-1 border rounded text-sm ${edu._id ? 'bg-gray-200 text-gray-500' : ''}`} value={edu.fieldOfStudy} onChange={e => handleEducationChange(idx, 'fieldOfStudy', e.target.value)} disabled={!!edu._id} />
-                                        </div>
-                                        <div className="grid grid-cols-2 gap-2">
-                                            <div>
-                                                <label className="text-xs text-gray-500">Start Date</label>
-                                                <input type="date" className={`w-full p-1 border rounded text-sm ${edu._id ? 'bg-gray-200 text-gray-500' : ''}`} value={getSafeDate(edu.startDate)} onChange={e => handleEducationChange(idx, 'startDate', e.target.value)} disabled={!!edu._id} />
-                                            </div>
-                                            <div>
-                                                <label className="text-xs text-gray-500">End Date</label>
-                                                <input type="date" className={`w-full p-1 border rounded text-sm ${edu._id ? 'bg-gray-200 text-gray-500' : ''}`} value={getSafeDate(edu.endDate)} onChange={e => handleEducationChange(idx, 'endDate', e.target.value)} disabled={!!edu._id} />
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-
-                            {/* Experience Section */}
-                            <div>
-                                <div className="flex justify-between items-center mb-2">
-                                    <label className="block text-sm font-medium text-gray-700">Experience</label>
-                                    <button onClick={addExperience} className="text-xs bg-blue-100 text-blue-600 px-2 py-1 rounded">+ Add</button>
-                                </div>
-                                {experience.map((exp, idx) => (
-                                    <div key={idx} className="border p-3 rounded mb-2 bg-gray-50">
-                                        {!exp._id && (
-                                            <div className="flex justify-end mb-1">
-                                                <button onClick={() => removeExperience(idx)} className="text-red-500 text-xs hover:underline">Remove</button>
-                                            </div>
-                                        )}
-                                        <div className="grid grid-cols-2 gap-2 mb-2">
-                                            <input placeholder="Company Name" className={`p-1 border rounded text-sm ${exp._id ? 'bg-gray-200 text-gray-500' : ''}`} value={exp.companyName} onChange={e => handleExperienceChange(idx, 'companyName', e.target.value)} disabled={!!exp._id} />
-                                            <input placeholder="Position" className={`p-1 border rounded text-sm ${exp._id ? 'bg-gray-200 text-gray-500' : ''}`} value={exp.position} onChange={e => handleExperienceChange(idx, 'position', e.target.value)} disabled={!!exp._id} />
-                                        </div>
-                                        <div className="grid grid-cols-2 gap-2">
-                                            <div>
-                                                <label className="text-xs text-gray-500">Start Date</label>
-                                                <input type="date" className={`w-full p-1 border rounded text-sm ${exp._id ? 'bg-gray-200 text-gray-500' : ''}`} value={getSafeDate(exp.startDate)} onChange={e => handleExperienceChange(idx, 'startDate', e.target.value)} disabled={!!exp._id} />
-                                            </div>
-                                            <div>
-                                                <label className="text-xs text-gray-500">End Date</label>
-                                                <input type="date" className={`w-full p-1 border rounded text-sm ${exp._id ? 'bg-gray-200 text-gray-500' : ''}`} value={getSafeDate(exp.endDate)} onChange={e => handleExperienceChange(idx, 'endDate', e.target.value)} disabled={!!exp._id} />
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-
-                            <div className="flex gap-4">
-                                <div className="w-1/2">
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">DOB</label>
-                                    <input 
-                                        type="date" 
-                                        className={`w-full p-2 border rounded ${record.dob ? 'bg-gray-100' : ''}`}
-                                        value={dob} 
-                                        onChange={(e) => setDob(e.target.value)}
-                                        disabled={!!record.dob}
-                                    />
-                                </div>
-                                <div className="w-1/2">
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Gender</label>
-                                    <select 
-                                        className={`w-full p-2 border rounded ${record.gender ? 'bg-gray-100' : ''}`}
-                                        value={gender} 
-                                        onChange={(e) => setGender(e.target.value)}
-                                        disabled={!!record.gender}
-                                    >
-                                        <option value="">M|F</option>
-                                        <option value="male">Male</option>
-                                        <option value="female">Female</option>
-                                        <option value="other">Other</option>
-                                    </select>
-                                </div>
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Location (City, State, Country)</label>
-                                <input 
-                                    type="text" 
-                                    className={`w-full p-2 border rounded ${record.location && (record.location.city || record.location.country) ? 'bg-gray-100' : ''}`}
-                                    value={location} 
-                                    onChange={(e) => setLocation(e.target.value)}
-                                    disabled={!!(record.location && (record.location.city || record.location.country))}
-                                />
-                            </div>
-
                             {/* CRM Fields */}
                             <hr className="my-4" />
                             <div>
@@ -353,28 +173,6 @@ const ModifyModal = ({ record, type, onClose, onSave }) => {
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Next Call Date (Optional)</label>
                                 <input type="date" className="w-full p-2 border rounded" value={nextCallDate} onChange={(e) => setNextCallDate(e.target.value)} />
-                            </div>
-                            <div className="flex gap-4">
-                                <div className="w-1/2">
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Duration of International exp (Years)</label>
-                                    <input 
-                                        type="number" 
-                                        className={`w-full p-2 border rounded ${record.internationalExp !== undefined && record.internationalExp !== null ? 'bg-gray-100' : ''}`}
-                                        value={internationalExp} 
-                                        onChange={(e) => setInternationalExp(e.target.value)}
-                                        disabled={record.internationalExp !== undefined && record.internationalExp !== null}
-                                    />
-                                </div>
-                                <div className="w-1/2">
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Duration of Domestic exp (Years)</label>
-                                    <input 
-                                        type="number" 
-                                        className={`w-full p-2 border rounded ${record.domesticExp !== undefined && record.domesticExp !== null ? 'bg-gray-100' : ''}`}
-                                        value={domesticExp} 
-                                        onChange={(e) => setDomesticExp(e.target.value)}
-                                        disabled={record.domesticExp !== undefined && record.domesticExp !== null}
-                                    />
-                                </div>
                             </div>
                         </div>
                         <button onClick={handleInternalSave} className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700" >
@@ -402,10 +200,14 @@ const ModifyModal = ({ record, type, onClose, onSave }) => {
                         </div>
                     </div>
                     {/* Right Column: Job Snapshot */}
-                    {type === 'application' && record.jobSnapshot && (
-                        <div className="w-1/2 p-6 overflow-y-auto">
-                            <h3 className="text-xl font-bold mb-4">Job Snapshot</h3>
-                            <JobSnapshotDetails snapshot={record.jobSnapshot} />
+                    {type === 'application' && (
+                        <div className="w-1/2 p-6 overflow-y-auto bg-gray-50 border-l">
+                            {record.jobSnapshot && (
+                                <div className="mb-8">
+                                    <h3 className="text-xl font-bold mb-4">Job Snapshot</h3>
+                                    <JobSnapshotDetails snapshot={record.jobSnapshot} />
+                                </div>
+                            )}
                         </div>
                     )}
                 </div>
