@@ -2,6 +2,200 @@ import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import JobSnapshotDetails from './JobSnapshotDetails';
 
+const SendCommsModal = ({ onClose, record }) => {
+    const [commsType, setCommsType] = useState('');
+    const [sid, setSid] = useState('');
+    const [wid, setWid] = useState('');
+    const [variables, setVariables] = useState([{ key: '', value: '' }]);
+    const [isSending, setIsSending] = useState(false);
+
+    const handleAddVariable = () => {
+        setVariables(prev => [...prev, { key: '', value: '' }]);
+    };
+
+    const handleVariableChange = (index, field, value) => {
+        setVariables(prev => {
+            const newVars = [...prev];
+            newVars[index][field] = value;
+            return newVars;
+        });
+    };
+
+    const handleDeleteVariable = (index) => {
+        setVariables(prev => prev.filter((_, i) => i !== index));
+    };
+
+    const handleSend = async () => {
+        if (!record.phoneNumber) {
+            alert('User phone number is not available.');
+            return;
+        }
+
+        // Parse phone
+        let mobile = record.phoneNumber.replace(/\D/g, '');
+        if (mobile.startsWith('91') && mobile.length > 10) {
+            mobile = mobile.slice(2);
+        }
+
+        setIsSending(true);
+
+        if (commsType === 'SMS') {
+            if (!sid) {
+                alert('SID is required.');
+                setIsSending(false);
+                return;
+            }
+
+            const url = new URL('https://api.authkey.io/request');
+            url.searchParams.append('authkey', 'b0d73e4663db5196');
+            url.searchParams.append('mobile', mobile);
+            url.searchParams.append('country_code', '91');
+            url.searchParams.append('sid', sid);
+
+            variables.forEach(({ key, value }) => {
+                if (key && value) url.searchParams.append(key, value);
+            });
+
+            try {
+                const response = await axios.post(url.toString(), "");
+                alert(`SMS sent successfully! Response: ${JSON.stringify(response.data)}`);
+                onClose();
+            } catch (err) {
+                alert(`Failed to send SMS. ${err.response?.data?.message || err.message}`);
+            } finally {
+                setIsSending(false);
+            }
+        }
+
+        else if (commsType === 'Whatsapp') {
+            if (!wid) {
+                alert('WID is required.');
+                setIsSending(false);
+                return;
+            }
+
+            const bodyValues = {};
+            variables.forEach(({ key, value }) => {
+                if (key && value) {
+                    bodyValues[key] = value;
+                }
+            });
+
+            try {
+                const response = await axios.post(
+                    'https://console.authkey.io/restapi/requestjson.php',
+                    {
+                        country_code: "91",
+                        mobile,
+                        wid,
+                        type: "text",
+                        bodyValues
+                    },
+                    {
+                        headers: {
+                            Authorization: "Basic b0d73e4663db5196",
+                            "Content-Type": "application/json"
+                        }
+                    }
+                );
+
+                alert(`WhatsApp sent successfully! Response: ${JSON.stringify(response.data)}`);
+                onClose();
+            } catch (err) {
+                alert(`Failed to send WhatsApp. ${err.response?.data?.message || err.message}`);
+            } finally {
+                setIsSending(false);
+            }
+        }
+
+        else {
+            alert('Please select Comms type.');
+            setIsSending(false);
+        }
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-[80] flex justify-center items-center" onClick={onClose}>
+            <div className="bg-white p-6 rounded-lg shadow-xl w-full max-w-md" onClick={e => e.stopPropagation()}>
+                <div className="flex justify-between items-center mb-4">
+                    <h2 className="text-xl font-bold">Send Comms</h2>
+                    <button onClick={onClose} className="text-gray-500 hover:text-gray-800 text-2xl">&times;</button>
+                </div>
+
+                <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Select Type of Comms</label>
+                    <select
+                        className="w-full p-2 border rounded"
+                        value={commsType}
+                        onChange={(e) => setCommsType(e.target.value)}
+                    >
+                        <option value="">-- Select --</option>
+                        <option value="SMS">SMS</option>
+                        <option value="Whatsapp">Whatsapp</option>
+                    </select>
+                </div>
+
+                {commsType === 'SMS' && (
+                    <>
+                        <div className="mb-4">
+                            <label className="block text-sm font-medium text-gray-700 mb-1">SID</label>
+                            <input type="text" className="w-full p-2 border rounded" value={sid} onChange={(e) => setSid(e.target.value)} />
+                        </div>
+                    </>
+                )}
+
+                {commsType === 'Whatsapp' && (
+                    <>
+                        <div className="mb-4">
+                            <label className="block text-sm font-medium text-gray-700 mb-1">WID</label>
+                            <input type="text" className="w-full p-2 border rounded" value={wid} onChange={(e) => setWid(e.target.value)} />
+                        </div>
+                    </>
+                )}
+
+                {commsType && (
+                    <>
+                        <div className="mb-4">
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Variables</label>
+                            {variables.map((variable, index) => (
+                                <div key={index} className="flex items-center gap-2 mb-2">
+                                    <input
+                                        type="text"
+                                        placeholder="Key"
+                                        className="w-1/2 p-2 border rounded"
+                                        value={variable.key}
+                                        onChange={(e) => handleVariableChange(index, 'key', e.target.value)}
+                                    />
+                                    <input
+                                        type="text"
+                                        placeholder="Value"
+                                        className="w-1/2 p-2 border rounded"
+                                        value={variable.value}
+                                        onChange={(e) => handleVariableChange(index, 'value', e.target.value)}
+                                    />
+                                    <button onClick={() => handleDeleteVariable(index)} className="text-red-500 hover:text-red-700 p-1">✕</button>
+                                </div>
+                            ))}
+                            <button onClick={handleAddVariable} className="text-blue-600 hover:text-blue-800 text-sm font-medium">
+                                + Add Variable
+                            </button>
+                        </div>
+
+                        <div className="flex justify-end gap-4 mt-6">
+                            <button onClick={onClose} className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300" disabled={isSending}>Cancel</button>
+                            <button onClick={handleSend} className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:bg-gray-400" disabled={isSending}>
+                                {isSending ? 'Sending...' : 'SEND'}
+                            </button>
+                        </div>
+                    </>
+                )}
+            </div>
+        </div>
+    );
+};
+
+
+// helper
 const getSafeDate = (dateVal) => {
     if (!dateVal) return "";
     const val = dateVal.$date || dateVal;
@@ -30,11 +224,11 @@ const ModifyModal = ({ record, type, onClose, onSave }) => {
     const [notes, setNotes] = useState(record.tempNotes || "");
     const [nextCallDate, setNextCallDate] = useState(record.tempNextCallDate || "");
     const [fullName, setFullName] = useState(record.fullName || "");
+    const [isCommsModalOpen, setIsCommsModalOpen] = useState(false);
     const [country, setCountry] = useState(record.targetCountry || "");
     const [jobRole, setJobRole] = useState(record.targetJobRole || "");
     const [history, setHistory] = useState([]);
     const [historyLoading, setHistoryLoading] = useState(true);
-
     const [countriesList, setCountriesList] = useState([]);
     const [jobRolesList, setJobRolesList] = useState([]);
 
@@ -43,8 +237,8 @@ const ModifyModal = ({ record, type, onClose, onSave }) => {
             if (!record?._id) return;
             setHistoryLoading(true);
             try {
-                const endpoint = type === 'user' 
-                    ? `/api/crm/user-history/${record._id}` 
+                const endpoint = type === 'user'
+                    ? `/api/crm/user-history/${record._id}`
                     : `/api/crm/application-history/${record._id}`;
                 const response = await axios.get(endpoint);
                 setHistory(response.data);
@@ -83,12 +277,12 @@ const ModifyModal = ({ record, type, onClose, onSave }) => {
             tempNotes: notes,
             tempNextCallDate: nextCallDate,
             fullName: fullName,
-            targetCountry: selectedCountry 
-                ? { id: selectedCountry._id, name: selectedCountry.name } 
-                : { name: country }, // Fallback for custom entry
-            targetJobRole: selectedJobRole 
-                ? { id: selectedJobRole._id, name: selectedJobRole.title } 
-                : { name: jobRole }, // Fallback for custom entry
+            targetCountry: selectedCountry
+                ? { id: selectedCountry._id, name: selectedCountry.name }
+                : { name: country },
+            targetJobRole: selectedJobRole
+                ? { id: selectedJobRole._id, name: selectedJobRole.title }
+                : { name: jobRole },
         });
         onClose();
     };
@@ -96,123 +290,132 @@ const ModifyModal = ({ record, type, onClose, onSave }) => {
     if (!record) return null;
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-[60] flex justify-end" onClick={onClose} >
-            <div className={`h-full w-full ${type === 'application' ? 'max-w-5xl' : 'max-w-lg'} bg-gray-100 shadow-xl z-[70]`} onClick={e => e.stopPropagation()}>
-                <div className="flex h-full">
-                    {/* Left Column: Form & History */}
-                    <div className={`${type === 'application' ? 'w-1/2' : 'w-full'} p-6 flex flex-col bg-white overflow-y-auto`}>
-                        <div className="flex justify-between items-center mb-6">
-                            <h2 className="text-2xl font-bold">Record Activity for {type === 'user' ? 'User' : 'Application'}</h2>
-                            <button onClick={onClose} className="text-gray-500 hover:text-gray-800 text-2xl">&times;</button>
+        <>
+            <div className="fixed inset-0 bg-black bg-opacity-50 z-[60] flex justify-end" onClick={onClose} >
+                <div className={`h-full w-full ${type === 'application' ? 'max-w-5xl' : 'max-w-lg'} bg-gray-100 shadow-xl z-[70]`} onClick={e => e.stopPropagation()}>
+                    <div className="flex h-full">
+
+                        {/* Left Column */}
+                        <div className={`${type === 'application' ? 'w-1/2' : 'w-full'} p-6 flex flex-col bg-white overflow-y-auto`}>
+                            <div className="flex justify-between items-center mb-6">
+                                <h2 className="text-2xl font-bold">Record Activity for {type === 'user' ? 'User' : 'Application'}</h2>
+                                <button onClick={onClose} className="text-gray-500 hover:text-gray-800 text-2l">&times;</button>
+                            </div>
+
+                            <div className="space-y-4 mb-8">
+                                <div className="flex gap-4">
+                                    <div className="w-1/2">
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">User ID</label>
+                                        <input type="text" className="w-full p-2 border rounded bg-gray-100" value={record._id} disabled />
+                                    </div>
+                                    <div className="w-1/2">
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Joined At</label>
+                                        <input type="text" className="w-full p-2 border rounded bg-gray-100" value={record.createdAt ? new Date(record.createdAt.$date || record.createdAt).toLocaleDateString() : '-'} disabled />
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Candidate Name</label>
+                                    <input type="text" className="w-full p-2 border rounded" value={fullName} onChange={(e) => setFullName(e.target.value)} />
+                                </div>
+
+                                <div className="flex gap-4">
+                                    <div className="w-1/2">
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Target Country</label>
+                                        <input
+                                            list="countries-list"
+                                            className={`w-full p-2 border rounded ${record.targetCountry ? 'bg-gray-100' : ''}`}
+                                            placeholder="Search country..."
+                                            defaultValue={country}
+                                            onBlur={(e) => setCountry(e.target.value)}
+                                            disabled={!!record.targetCountry}
+                                        />
+                                        <datalist id="countries-list">
+                                            {countriesList.map(c => <option key={c._id} value={c.name} />)}
+                                        </datalist>
+                                    </div>
+                                    <div className="w-1/2">
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Target Job Role</label>
+                                        <input
+                                            list="jobroles-list"
+                                            className={`w-full p-2 border rounded ${record.targetJobRole ? 'bg-gray-100' : ''}`}
+                                            placeholder="Search job role..."
+                                            defaultValue={jobRole}
+                                            onBlur={(e) => setJobRole(e.target.value)}
+                                            disabled={!!record.targetJobRole}
+                                        />
+                                        <datalist id="jobroles-list">
+                                            {jobRolesList.map(r => <option key={r._id} value={r.title} />)}
+                                        </datalist>
+                                    </div>
+                                </div>
+
+                                <hr className="my-4" />
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Call Disposition</label>
+                                    <select className="w-full p-2 border rounded" value={disposition} onChange={(e) => setDisposition(e.target.value)} >
+                                        <option value="">Select Disposition</option>
+                                        {DISPOSITION_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+                                    <textarea className="w-full p-2 border rounded" rows="4" value={notes} onChange={(e) => setNotes(e.target.value)} />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Next Call Date (Optional)</label>
+                                    <input type="date" className="w-full p-2 border rounded" value={nextCallDate} onChange={(e) => setNextCallDate(e.target.value)} />
+                                </div>
+                            </div>
+
+                            <div className="flex gap-2 mt-4">
+                                <button onClick={handleInternalSave} className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700">
+                                    Save Changes
+                                </button>
+                                <button onClick={() => setIsCommsModalOpen(true)} className="w-full bg-gray-600 text-white py-2 rounded hover:bg-gray-700">
+                                    Send Comms
+                                </button>
+                            </div>
+
+                            <div className="mt-10 flex-grow overflow-y-auto">
+                                <h3 className="text-xl font-bold mb-4">History</h3>
+                                {historyLoading ? (
+                                    <p>Loading history...</p>
+                                ) : (
+                                    <div className="space-y-6 border-l-2 border-gray-200 pl-6">
+                                        {history.length > 0 ? history.map(entry => (
+                                            <div key={entry.id} className="relative">
+                                                <div className="absolute -left-7 top-1 h-2 w-2 rounded-full bg-blue-500"></div>
+                                                <p className="text-sm text-gray-500">{new Date(entry.created_at).toLocaleString()}</p>
+                                                <p className="font-semibold">{entry.assignee || 'System'}</p>
+                                                {entry.call_disposition && <p className="text-sm">Status: <span className="font-medium">{entry.call_disposition}</span></p>}
+                                                {entry.notes && <p className="text-sm bg-gray-50 p-2 rounded mt-1">Notes: {entry.notes}</p>}
+                                            </div>
+                                        )) : <p>No history found.</p>}
+                                    </div>
+                                )}
+                            </div>
                         </div>
 
-                        {/* Form */}
-                        <div className="space-y-4 mb-8">
-                            {/* Basic Info & Joined At */}
-                            <div className="flex gap-4">
-                                <div className="w-1/2">
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">User ID</label>
-                                    <input type="text" className="w-full p-2 border rounded bg-gray-100" value={record._id} disabled />
-                                </div>
-                                <div className="w-1/2">
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Joined At</label>
-                                    <input type="text" className="w-full p-2 border rounded bg-gray-100" value={record.createdAt ? new Date(record.createdAt.$date || record.createdAt).toLocaleDateString() : '-'} disabled />
-                                </div>
+                        {type === 'application' && (
+                            <div className="w-1/2 p-6 overflow-y-auto bg-gray-50 border-l">
+                                {record.jobSnapshot && (
+                                    <div className="mb-8">
+                                        <h3 className="text-xl font-bold mb-4">Job Snapshot</h3>
+                                        <JobSnapshotDetails snapshot={record.jobSnapshot} />
+                                    </div>
+                                )}
                             </div>
-
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Candidate Name</label>
-                                <input type="text" className="w-full p-2 border rounded" value={fullName} onChange={(e) => setFullName(e.target.value)} />
-                            </div>
-
-                            {/* Target Country & Job Role - Always shown, disabled if exists */}
-                            <div className="flex gap-4">
-                                <div className="w-1/2">
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Target Country</label>
-                                    <input
-                                        list="countries-list"
-                                        className={`w-full p-2 border rounded ${record.targetCountry ? 'bg-gray-100' : ''}`}
-                                        placeholder="Search country..."
-                                        defaultValue={country}
-                                        onBlur={(e) => setCountry(e.target.value)}
-                                        disabled={!!record.targetCountry}
-                                    />
-                                    <datalist id="countries-list">
-                                        {countriesList.map(c => <option key={c._id} value={c.name} />)}
-                                    </datalist>
-                                </div>
-                                <div className="w-1/2">
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Target Job Role</label>
-                                    <input
-                                        list="jobroles-list"
-                                        className={`w-full p-2 border rounded ${record.targetJobRole ? 'bg-gray-100' : ''}`}
-                                        placeholder="Search job role..."
-                                        defaultValue={jobRole}
-                                        onBlur={(e) => setJobRole(e.target.value)}
-                                        disabled={!!record.targetJobRole}
-                                    />
-                                    <datalist id="jobroles-list">
-                                        {jobRolesList.map(r => <option key={r._id} value={r.title} />)}
-                                    </datalist>
-                                </div>
-                            </div>
-
-                            {/* CRM Fields */}
-                            <hr className="my-4" />
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Call Disposition</label>
-                                <select className="w-full p-2 border rounded" value={disposition} onChange={(e) => setDisposition(e.target.value)} >
-                                    <option value="">Select Disposition</option>
-                                    {DISPOSITION_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                                </select>
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
-                                <textarea className="w-full p-2 border rounded" rows="4" value={notes} onChange={(e) => setNotes(e.target.value)} />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Next Call Date (Optional)</label>
-                                <input type="date" className="w-full p-2 border rounded" value={nextCallDate} onChange={(e) => setNextCallDate(e.target.value)} />
-                            </div>
-                        </div>
-                        <button onClick={handleInternalSave} className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700" >
-                            Save Changes
-                        </button>
-
-                        {/* History Timeline */}
-                        <div className="mt-10 flex-grow overflow-y-auto">
-                            <h3 className="text-xl font-bold mb-4">History</h3>
-                            {historyLoading ? (
-                                <p>Loading history...</p>
-                            ) : (
-                                <div className="space-y-6 border-l-2 border-gray-200 pl-6">
-                                    {history.length > 0 ? history.map(entry => (
-                                        <div key={entry.id} className="relative">
-                                            <div className="absolute -left-7 top-1 h-2 w-2 rounded-full bg-blue-500"></div>
-                                            <p className="text-sm text-gray-500">{new Date(entry.created_at).toLocaleString()}</p>
-                                            <p className="font-semibold">{entry.assignee || 'System'}</p>
-                                            {entry.call_disposition && <p className="text-sm">Status: <span className="font-medium">{entry.call_disposition}</span></p>}
-                                            {entry.notes && <p className="text-sm bg-gray-50 p-2 rounded mt-1">Notes: {entry.notes}</p>}
-                                        </div>
-                                    )) : <p>No history found.</p>}
-                                </div>
-                            )}
-                        </div>
+                        )}
                     </div>
-                    {/* Right Column: Job Snapshot */}
-                    {type === 'application' && (
-                        <div className="w-1/2 p-6 overflow-y-auto bg-gray-50 border-l">
-                            {record.jobSnapshot && (
-                                <div className="mb-8">
-                                    <h3 className="text-xl font-bold mb-4">Job Snapshot</h3>
-                                    <JobSnapshotDetails snapshot={record.jobSnapshot} />
-                                </div>
-                            )}
-                        </div>
-                    )}
                 </div>
             </div>
-        </div>
+
+            {isCommsModalOpen && <SendCommsModal record={record} onClose={() => setIsCommsModalOpen(false)} />}
+        </>
     );
 };
 
