@@ -1,11 +1,8 @@
 import { useState, useEffect } from "react";
 import { fetchUserFeedEngagement, UserFeedEngagementItem } from "../services/insights.api";
-import { supabase } from "../pages/supabaseClient";
-
-type UserFeedEngagementItemWithAssign = UserFeedEngagementItem & { assigned_to?: string };
 
 export const UserFeedEngagementCard = ({ dateRange, currentUser }: { dateRange?: { start: string, end: string }, currentUser?: any }) => {
-  const [items, setItems] = useState<UserFeedEngagementItemWithAssign[]>([]);
+  const [items, setItems] = useState<UserFeedEngagementItem[]>([]);
   const [showModal, setShowModal] = useState(false);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
@@ -17,17 +14,7 @@ export const UserFeedEngagementCard = ({ dateRange, currentUser }: { dateRange?:
       if (append) {
         setItems((prev) => [...prev, ...data]);
       } else {
-        const userIds = data.map((u: any) => u.userId);
-        let assignments: any[] = [];
-        if (userIds.length > 0) {
-          const { data: assignData } = await supabase
-            .from('user_assignments')
-            .select('user_id, assigned_to')
-            .in('user_id', userIds);
-          if (assignData) assignments = assignData;
-        }
-        const merged = data.map((u: any) => ({ ...u, assigned_to: assignments.find(a => a.user_id === u.userId)?.assigned_to }));
-        setItems(merged);
+        setItems(data);
       }
     } catch (e) {
       console.error(e);
@@ -64,29 +51,10 @@ export const UserFeedEngagementCard = ({ dateRange, currentUser }: { dateRange?:
     window.URL.revokeObjectURL(url);
   };
 
-  const handleAssign = async (userId: string) => {
-    if (!currentUser?.email) return;
-    try {
-      const { error } = await supabase
-        .from('user_assignments')
-        .upsert({ user_id: userId, assigned_to: currentUser.email });
-      if (error) throw error;
-      setItems(prev => prev.map(u => u.userId === userId ? { ...u, assigned_to: currentUser.email } : u));
-    } catch (err) {
-      console.error("Assignment failed", err);
-    }
-  };
-
-  const handleRecordActivity = (userId: string) => {
-    // Placeholder for recording activity
-    console.log("Record activity for", userId);
-    alert(`Recording activity for user ${userId}`);
-  };
-
-  const List = ({ data }: { data: UserFeedEngagementItemWithAssign[] }) => {
+  const List = ({ data }: { data: UserFeedEngagementItem[] }) => {
     const statusKeys = Array.from(
       new Set(data.flatMap((item) => Object.keys(item)))
-    ).filter((key) => !["userId", "fullName", "totalFeeds", "assigned_to"].includes(key)).sort();
+    ).filter((key) => !["userId", "fullName", "totalFeeds"].includes(key)).sort();
 
     return (
       <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
@@ -98,7 +66,6 @@ export const UserFeedEngagementCard = ({ dateRange, currentUser }: { dateRange?:
             {statusKeys.map((key) => (
               <th key={key} style={{ padding: "8px 12px", textAlign: "right" }}>{key.replace(/_/g, " ")}</th>
             ))}
-            <th style={{ padding: "8px 12px", textAlign: "center" }}>Assign To</th>
           </tr>
         </thead>
         <tbody>
@@ -112,27 +79,6 @@ export const UserFeedEngagementCard = ({ dateRange, currentUser }: { dateRange?:
                   {item[key] || 0}
                 </td>
               ))}
-              <td style={{ padding: "12px 12px", textAlign: "center" }}>
-                {item.assigned_to ? (
-                  item.assigned_to === currentUser?.email ? (
-                    <button 
-                      onClick={() => handleRecordActivity(item.userId)}
-                      style={{ padding: "6px 12px", borderRadius: "6px", border: "none", background: "#2563eb", color: "white", cursor: "pointer", fontSize: "12px", fontWeight: 500 }}
-                    >
-                      Record Activity
-                    </button>
-                  ) : (
-                    <span style={{ color: "#999", fontSize: 12 }}>Assigned to {item.assigned_to}</span>
-                  )
-                ) : (
-                  <button 
-                    onClick={() => handleAssign(item.userId)}
-                    style={{ padding: "6px 12px", borderRadius: "6px", border: "1px solid #2563eb", background: "white", color: "#2563eb", cursor: "pointer", fontSize: "12px", fontWeight: 500 }}
-                  >
-                    Assign Me
-                  </button>
-                )}
-              </td>
             </tr>
           ))}
         </tbody>

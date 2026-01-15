@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { fetchUserApplicationStatus, UserAppStatus } from "../services/insights.api";
-import { supabase } from "../pages/supabaseClient";
 
 interface Props {
   title: string;
@@ -9,10 +8,8 @@ interface Props {
   currentUser?: any;
 }
 
-type UserAppStatusWithAssign = UserAppStatus & { assigned_to?: string };
-
 export const UserApplicationListCard = ({ title, filter, dateRange, currentUser }: Props) => {
-  const [users, setUsers] = useState<UserAppStatusWithAssign[]>([]);
+  const [users, setUsers] = useState<UserAppStatus[]>([]);
   const [total, setTotal] = useState(0);
   const [showModal, setShowModal] = useState(false);
   const [page, setPage] = useState(1);
@@ -23,20 +20,9 @@ export const UserApplicationListCard = ({ title, filter, dateRange, currentUser 
     try {
       const response = await fetchUserApplicationStatus(p, 10, filter, dateRange);
       if (append) {
-        // We would need to fetch assignments for new items here too, but for simplicity in append mode:
         setUsers((prev) => [...prev, ...response.data]);
       } else {
-        const userIds = response.data.map((u: any) => u.userId);
-        let assignments: any[] = [];
-        if (userIds.length > 0) {
-          const { data } = await supabase
-            .from('user_assignments')
-            .select('user_id, assigned_to')
-            .in('user_id', userIds);
-          if (data) assignments = data;
-        }
-        const merged = response.data.map((u: any) => ({ ...u, assigned_to: assignments.find(a => a.user_id === u.userId)?.assigned_to }));
-        setUsers(merged);
+        setUsers(response.data);
       }
       setTotal(response.total);
     } catch (e) {
@@ -75,26 +61,7 @@ export const UserApplicationListCard = ({ title, filter, dateRange, currentUser 
     window.URL.revokeObjectURL(url);
   };
 
-  const handleAssign = async (userId: string) => {
-    if (!currentUser?.email) return;
-    try {
-      const { error } = await supabase
-        .from('user_assignments')
-        .upsert({ user_id: userId, assigned_to: currentUser.email });
-      if (error) throw error;
-      setUsers(prev => prev.map(u => u.userId === userId ? { ...u, assigned_to: currentUser.email } : u));
-    } catch (err) {
-      console.error("Assignment failed", err);
-    }
-  };
-
-  const handleRecordActivity = (userId: string) => {
-    // Placeholder for recording activity
-    console.log("Record activity for", userId);
-    alert(`Recording activity for user ${userId}`);
-  };
-
-  const List = ({ items }: { items: UserAppStatusWithAssign[] }) => (
+  const List = ({ items }: { items: UserAppStatus[] }) => (
     <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
       <thead>
         <tr style={{ textAlign: "left", color: "#666", borderBottom: "1px solid #eee" }}>
@@ -102,7 +69,6 @@ export const UserApplicationListCard = ({ title, filter, dateRange, currentUser 
           <th style={{ padding: "8px 0" }}>Name</th>
           {filter !== 'applied' && <th style={{ padding: "8px 0" }}>Target Country</th>}
           {filter !== 'applied' && <th style={{ padding: "8px 0" }}>Target Role</th>}
-          <th style={{ padding: "8px 0" }}>Assign To</th>
         </tr>
       </thead>
       <tbody>
@@ -114,27 +80,6 @@ export const UserApplicationListCard = ({ title, filter, dateRange, currentUser 
             <td style={{ padding: "12px 0", fontWeight: 500 }}>{item.fullName}</td>
             {filter !== 'applied' && <td style={{ padding: "12px 0", color: "#666" }}>{item.targetCountry}</td>}
             {filter !== 'applied' && <td style={{ padding: "12px 0", color: "#666" }}>{item.targetJobRole}</td>}
-            <td style={{ padding: "12px 0" }}>
-              {item.assigned_to ? (
-                item.assigned_to === currentUser?.email ? (
-                  <button 
-                    onClick={() => handleRecordActivity(item.userId)}
-                    style={{ padding: "6px 12px", borderRadius: "6px", border: "none", background: "#2563eb", color: "white", cursor: "pointer", fontSize: "12px", fontWeight: 500 }}
-                  >
-                    Record Activity
-                  </button>
-                ) : (
-                  <span style={{ color: "#999", fontSize: 12 }}>Assigned to {item.assigned_to}</span>
-                )
-              ) : (
-                <button 
-                  onClick={() => handleAssign(item.userId)}
-                  style={{ padding: "6px 12px", borderRadius: "6px", border: "1px solid #2563eb", background: "white", color: "#2563eb", cursor: "pointer", fontSize: "12px", fontWeight: 500 }}
-                >
-                  Assign Me
-                </button>
-              )}
-            </td>
           </tr>
         ))}
       </tbody>
