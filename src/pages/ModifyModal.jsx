@@ -24,7 +24,7 @@ const SMS_TEMPLATES = [
     {
         sid: "33386",
         name: "PO APP DOWNLOAD",
-        content: "Hi {#name#}, aapka abroad job interest update kar rahe hain. Kovon safe & free platform hai. Profile banane ke liye download kare: https://play.google.com/store/apps/details?id=com.kovonglobalprivatelimited.kovonglobaljobsearchapp&pcampaignid=web_share -Kovon",
+        content: "Hi {#name#}, aapka abroad job interest update kar rahe hain. Kovon safe & free platform hai. Profile banane ke liye download kare: https://vil.ltd/kovon/c/kjobs -Kovon",
         variables: ["name"]
     },
     {
@@ -88,7 +88,7 @@ const getVariableValue = (key, record) => {
             }
             return 'competitive';
         case 'applink':
-            return 'https://play.google.com/store/apps/details?id=com.kovonglobalprivatelimited.kovonglobaljobsearchapp&pcampaignid=web_share';
+            return 'https://vil.ltd/kovon/c/kjobs';
         default:
             return '';
     }
