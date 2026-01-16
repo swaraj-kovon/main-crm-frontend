@@ -2,12 +2,138 @@ import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import JobSnapshotDetails from './JobSnapshotDetails';
 
+const SMS_TEMPLATES = [
+    {
+        sid: "33410",
+        name: "p0 app download Hindi",
+        content: "Hi {#name#}, aapka abroad job interest update kar rahe hain. Kovon safe & free platform hai. Profile banane ke liye download kare: {#applink#} -Kovon",
+        variables: ["name", "applink"]
+    },
+    {
+        sid: "33394",
+        name: "Context Trust App Install Hindi",
+        content: "Hi {#name#}, yeh {#country#} mein {#jobrole#} aur salary {#salary#} se upar ke jobs ke baare mein hai. Kovon bilkul free hai aur verified foreign employers ke saath kaam karta hai. App download karke safely jobs dekhiye. {#applink#} -Kovon",
+        variables: ["name", "country", "jobrole", "salary", "applink"]
+    },
+    {
+        sid: "33387",
+        name: "App Open",
+        content: "Jobs available for {#jobrole#} in {#country#}. Open your Kovon app and apply today. No charges. Login now: {#applink#} -Kovon",
+        variables: ["jobrole", "country", "applink"]
+    },
+    {
+        sid: "33386",
+        name: "PO APP DOWNLOAD",
+        content: "Hi {#name#}, aapka abroad job interest update kar rahe hain. Kovon safe & free platform hai. Profile banane ke liye download kare: https://play.google.com/store/apps/details?id=com.kovonglobalprivatelimited.kovonglobaljobsearchapp&pcampaignid=web_share -Kovon",
+        variables: ["name"]
+    },
+    {
+        sid: "33385",
+        name: "Context + Trust + App Install",
+        content: "Hi {#name#}, this is regarding {#jobrole#} jobs in {#country#} . Kovon is 100% free with verified overseas employers. Download the app to explore safely. {#applink#} -Kovon",
+        variables: ["name", "jobrole", "country", "applink"]
+    },
+    {
+        sid: "33205",
+        name: "DO Job Search",
+        content: "Hi {#name#}, Kovon ne aapke skill ke hisaab se abroad jobs shortlist ki hain. Check karo aur free me apply karo: https://www.kovon.io/ -Kovon",
+        variables: ["name"]
+    }
+];
+
+const WHATSAPP_TEMPLATES = [
+    {
+        wid: "23781",
+        name: "explain_next_step_profile_comp",
+        content: "Dear {{1}}, You are now registered on Kovon. To see matching overseas jobs, please add your job role and target country. Takes less than 2 minutes.",
+        variables: [{ key: "1", field: "name" }]
+    },
+    {
+        wid: "23780",
+        name: "unreg_day0_install_msg_media",
+        content: "Hi {{1}} , main aapse {{2}} mein {{3}} ke jobs liye baat karna chah rahi thi. - Kovon par *0* charges - Koi agent nahi - Sirf *verified foreign jobs* hain Yahan se app download karein. Install ke baad DONE reply karein",
+        variables: [{ key: "1", field: "name" }, { key: "2", field: "country" }, { key: "3", field: "jobrole" }]
+    },
+    {
+        wid: "23506",
+        name: "reg_noapply_day0",
+        content: "Aapki profile {{1}} mein {{2}} jobs ke liye ready hai. Live jobs available hain. App kholkar search karein. Main madad kar sakti hoon.",
+        variables: [{ key: "1", field: "country" }, { key: "2", field: "jobrole" }]
+    },
+    {
+        wid: "23503",
+        name: "unreg_fomo_day4",
+        content: "Aap jaise profile wale candidates ne {{1}} mein {{2}} jobs ke liye Kovon par apply kiya hai. Aap bhi bina paisa diye apply kar sakte hain. 🎊 Abhi install karein, aur future secure karein!🌏",
+        variables: [{ key: "1", field: "country" }, { key: "2", field: "jobrole" }]
+    },
+    {
+        wid: "23502",
+        name: "unreg_day0_install_msg",
+        content: "Hi {{1}} , main aapse {{2}} mein {{3}} ke jobs liye baat karna chah rahi thi. - Kovon par *0* charges - Koi agent nahi - Sirf *verified foreign jobs* hain Yahan se app download karein. Install ke baad DONE reply karein",
+        variables: [{ key: "1", field: "name" }, { key: "2", field: "country" }, { key: "3", field: "jobrole" }]
+    }
+];
+
+const getVariableValue = (key, record) => {
+    switch (key) {
+        case 'name':
+            return record.fullName || '';
+        case 'country':
+            return typeof record.targetCountry === 'object' ? record.targetCountry.name : (record.targetCountry || '');
+        case 'jobrole':
+            return typeof record.targetJobRole === 'object' ? record.targetJobRole.name : (record.targetJobRole || '');
+        case 'salary':
+            if (record.jobSnapshot?.salary?.min) {
+                return `${record.jobSnapshot.salary.min} ${record.jobSnapshot.salary.currency || ''}`;
+            }
+            return 'competitive';
+        case 'applink':
+            return 'https://play.google.com/store/apps/details?id=com.kovonglobalprivatelimited.kovonglobaljobsearchapp&pcampaignid=web_share';
+        default:
+            return '';
+    }
+};
+
 const SendCommsModal = ({ onClose, record }) => {
     const [commsType, setCommsType] = useState('');
+    const [selectedTemplate, setSelectedTemplate] = useState('');
     const [sid, setSid] = useState('');
     const [wid, setWid] = useState('');
     const [variables, setVariables] = useState([{ key: '', value: '' }]);
     const [isSending, setIsSending] = useState(false);
+
+    const handleTemplateChange = (e) => {
+        const templateName = e.target.value;
+        setSelectedTemplate(templateName);
+
+        if (commsType === 'SMS') {
+            const template = SMS_TEMPLATES.find(t => t.name === templateName);
+            if (template) {
+                setSid(template.sid);
+                const newVariables = template.variables.map(key => ({
+                    key,
+                    value: getVariableValue(key, record)
+                }));
+                setVariables(newVariables);
+            } else {
+                setSid('');
+                setVariables([{ key: '', value: '' }]);
+            }
+        } else if (commsType === 'Whatsapp') {
+            const template = WHATSAPP_TEMPLATES.find(t => t.name === templateName);
+            if (template) {
+                setWid(template.wid);
+                const newVariables = template.variables.map(v => ({
+                    key: v.key,
+                    value: getVariableValue(v.field, record)
+                }));
+                setVariables(newVariables);
+            } else {
+                setWid('');
+                setVariables([{ key: '', value: '' }]);
+            }
+        }
+    };
 
     const handleAddVariable = () => {
         setVariables(prev => [...prev, { key: '', value: '' }]);
@@ -114,9 +240,30 @@ const SendCommsModal = ({ onClose, record }) => {
         }
     };
 
+    const getPreviewMessage = () => {
+        let template = null;
+        if (commsType === 'SMS') {
+            template = SMS_TEMPLATES.find(t => t.name === selectedTemplate);
+        } else if (commsType === 'Whatsapp') {
+            template = WHATSAPP_TEMPLATES.find(t => t.name === selectedTemplate);
+        }
+
+        if (!template) return '';
+
+        let message = template.content;
+        variables.forEach(({ key, value }) => {
+            if (commsType === 'SMS') {
+                message = message.split(`{#${key}#}`).join(value || `{#${key}#}`);
+            } else if (commsType === 'Whatsapp') {
+                message = message.split(`{{${key}}}`).join(value || `{{${key}}}`);
+            }
+        });
+        return message;
+    };
+
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-[80] flex justify-center items-center" onClick={onClose}>
-            <div className="bg-white p-6 rounded-lg shadow-xl w-full max-w-md" onClick={e => e.stopPropagation()}>
+            <div className="bg-white p-6 rounded-lg shadow-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
                 <div className="flex justify-between items-center mb-4">
                     <h2 className="text-xl font-bold">Send Comms</h2>
                     <button onClick={onClose} className="text-gray-500 hover:text-gray-800 text-2xl">&times;</button>
@@ -127,7 +274,13 @@ const SendCommsModal = ({ onClose, record }) => {
                     <select
                         className="w-full p-2 border rounded"
                         value={commsType}
-                        onChange={(e) => setCommsType(e.target.value)}
+                        onChange={(e) => {
+                            setCommsType(e.target.value);
+                            setSelectedTemplate('');
+                            setSid('');
+                            setWid('');
+                            setVariables([{ key: '', value: '' }]);
+                        }}
                     >
                         <option value="">-- Select --</option>
                         <option value="SMS">SMS</option>
@@ -138,8 +291,21 @@ const SendCommsModal = ({ onClose, record }) => {
                 {commsType === 'SMS' && (
                     <>
                         <div className="mb-4">
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Template Name</label>
+                            <select
+                                className="w-full p-2 border rounded"
+                                value={selectedTemplate}
+                                onChange={handleTemplateChange}
+                            >
+                                <option value="">-- Select Template --</option>
+                                {SMS_TEMPLATES.map(t => (
+                                    <option key={t.sid} value={t.name}>{t.name}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <div className="mb-4">
                             <label className="block text-sm font-medium text-gray-700 mb-1">SID</label>
-                            <input type="text" className="w-full p-2 border rounded" value={sid} onChange={(e) => setSid(e.target.value)} />
+                            <input type="text" className="w-full p-2 border rounded bg-gray-100" value={sid} readOnly />
                         </div>
                     </>
                 )}
@@ -147,8 +313,21 @@ const SendCommsModal = ({ onClose, record }) => {
                 {commsType === 'Whatsapp' && (
                     <>
                         <div className="mb-4">
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Template Name</label>
+                            <select
+                                className="w-full p-2 border rounded"
+                                value={selectedTemplate}
+                                onChange={handleTemplateChange}
+                            >
+                                <option value="">-- Select Template --</option>
+                                {WHATSAPP_TEMPLATES.map(t => (
+                                    <option key={t.wid} value={t.name}>{t.name}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <div className="mb-4">
                             <label className="block text-sm font-medium text-gray-700 mb-1">WID</label>
-                            <input type="text" className="w-full p-2 border rounded" value={wid} onChange={(e) => setWid(e.target.value)} />
+                            <input type="text" className="w-full p-2 border rounded bg-gray-100" value={wid} readOnly />
                         </div>
                     </>
                 )}
@@ -179,6 +358,13 @@ const SendCommsModal = ({ onClose, record }) => {
                             <button onClick={handleAddVariable} className="text-blue-600 hover:text-blue-800 text-sm font-medium">
                                 + Add Variable
                             </button>
+                        </div>
+
+                        <div className="mb-4">
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Message Preview</label>
+                            <div className="p-3 bg-gray-50 border rounded text-sm whitespace-pre-wrap text-gray-800">
+                                {getPreviewMessage() || <span className="text-gray-400 italic">Select a template to see preview</span>}
+                            </div>
                         </div>
 
                         <div className="flex justify-end gap-4 mt-6">
