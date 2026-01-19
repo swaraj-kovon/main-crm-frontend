@@ -45,7 +45,7 @@ export const TrendCard = ({ title, fetchData, dateRange, color }: TrendCardProps
       background: "#ffffff", borderRadius: 12, padding: 24, boxShadow: "0 8px 24px rgba(0,0,0,0.05)"
     }}>
       <h4 style={{ margin: "0 0 16px 0", fontSize: 14, color: "#666" }}>{title} Trend</h4>
-      <SimpleLineChart data={data} height={300} />
+      <SimpleLineChart data={data} height={400} />
     </div>
   );
 };

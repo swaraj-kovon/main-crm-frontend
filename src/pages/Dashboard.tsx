@@ -87,7 +87,7 @@ export const Dashboard = () => {
 
   return (
     <>
-      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 20, gap: 12, alignItems: "center" }}>
+      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 24, gap: 12, alignItems: "center" }}>
         <span style={{ fontSize: 14, fontWeight: 500, color: "#666" }}>Date Range:</span>
         <input 
           type="date" 
@@ -134,6 +134,22 @@ export const Dashboard = () => {
           <span style={{ color: "#22c55e", fontWeight: "bold", fontSize: 12, letterSpacing: 1 }}>LIVE</span>
         </button>
       </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 24, marginBottom: 24 }}>
+        {data && (
+          <StatCard label="Total Users" value={data.value} updatedAt={data.updatedAt} />
+        )}
+        {usersApplied !== null && (
+          <StatCard label="Users Applied" value={usersApplied} updatedAt={data?.updatedAt} />
+        )}
+        {totalApplications !== null && (
+          <StatCard label="Applications" value={totalApplications} updatedAt={data?.updatedAt} />
+        )}
+        {completedProfiles !== null && (
+          <StatCard label="Completed Profiles" value={completedProfiles} updatedAt={data?.updatedAt} />
+        )}
+      </div>
+
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(400px, 1fr))", gap: "24px" }}>
         {error && (
           <div style={{ color: "red", gridColumn: "1/-1" }}>
@@ -143,28 +159,7 @@ export const Dashboard = () => {
         
         {loading && !data && <div>Loading insights...</div>}
 
-        <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-          <div style={{ display: "flex", gap: 16, flexWrap: 'wrap' }}>
-            {data && (
-              <StatCard label="Total Users" value={data.value} updatedAt={data.updatedAt} />
-            )}
-
-            {usersApplied !== null && (
-              <StatCard label="Users Applied" value={usersApplied} updatedAt={new Date().toISOString()} />
-            )}
-
-            {totalApplications !== null && (
-              <StatCard label="Applications" value={totalApplications} updatedAt={new Date().toISOString()} />
-            )}
-
-            {completedProfiles !== null && (
-              <StatCard label="Completed Profiles" value={completedProfiles} updatedAt={new Date().toISOString()} />
-            )}
-
-          </div>
-
-          <TrendCard title="Users" fetchData={fetchTotalUsersTrend} dateRange={dateRange} color="#3b82f6" />
-        </div>
+        <TrendCard title="Users" fetchData={fetchTotalUsersTrend} dateRange={dateRange} color="#3b82f6" style={{ gridColumn: "span 2" }} />
 
         <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
           <TotalJobsCard dateRange={dateRange} />
