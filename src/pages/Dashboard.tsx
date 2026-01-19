@@ -23,16 +23,24 @@ import { ApplicationStatusTrendCard } from "../components/ApplicationStatusTrend
 import { TopCountriesComparisonCard } from "../components/TopCountriesComparisonCard";
 import { JobsByCompanyComparisonCard } from "../components/JobsByCompanyComparisonCard";
 import { 
-  fetchTotalUsers, 
-  fetchTotalUsersTrend, 
-  fetchTotalJobsTrend, 
-  fetchTotalTicketsTrend, 
-  fetchTotalFeedsTrend 
+  fetchTotalUsers,
+  fetchUserApplicationStatus,
+  fetchTopApplicantsSummary,
+  fetchIncompleteProfiles,
+  fetchTotalUsersTrend,
+  fetchTotalJobsTrend,
+  fetchTotalTicketsTrend,
+  fetchTotalFeedsTrend
 } from "../services/insights.api";
+
 import { supabase } from "./supabaseClient";
 
 export const Dashboard = () => {
   const [data, setData] = useState<any>(null);
+  const [usersApplied, setUsersApplied] = useState<number | null>(null);
+  const [totalApplications, setTotalApplications] = useState<number | null>(null);
+  const [completedProfiles, setCompletedProfiles] = useState<number | null>(null);
+
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [dateRange, setDateRange] = useState({ start: "", end: "" });
@@ -40,8 +48,19 @@ export const Dashboard = () => {
 
   const loadInsights = useCallback(async () => {
     try {
-      const result = await fetchTotalUsers(dateRange);
-      setData(result);
+      const users = await fetchTotalUsers(dateRange);
+      setData(users);
+
+      const usersAppStatus = await fetchUserApplicationStatus(1, 'all', 'applied', dateRange);
+      setUsersApplied(usersAppStatus.total);
+
+      const applicantsSummary = await fetchTopApplicantsSummary(1, 'all', dateRange);
+      const totalApps = applicantsSummary.reduce((sum, u) => sum + (u.totalApplications || 0), 0);
+      setTotalApplications(totalApps);
+
+      const incomplete = await fetchIncompleteProfiles(1, 'all', dateRange);
+      setCompletedProfiles(users.value - incomplete.total);
+
       setError(null);
     } catch (err) {
       console.error(err);
@@ -50,6 +69,7 @@ export const Dashboard = () => {
       setLoading(false);
     }
   }, [dateRange]);
+
 
   useEffect(() => {
     loadInsights();
@@ -124,13 +144,25 @@ export const Dashboard = () => {
         {loading && !data && <div>Loading insights...</div>}
 
         <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-          {data && (
-            <StatCard
-              label={data.label}
-              value={data.value}
-              updatedAt={data.updatedAt}
-            />
-          )}
+          <div style={{ display: "flex", gap: 16, flexWrap: 'wrap' }}>
+            {data && (
+              <StatCard label="Total Users" value={data.value} updatedAt={data.updatedAt} />
+            )}
+
+            {usersApplied !== null && (
+              <StatCard label="Users Applied" value={usersApplied} updatedAt={new Date().toISOString()} />
+            )}
+
+            {totalApplications !== null && (
+              <StatCard label="Applications" value={totalApplications} updatedAt={new Date().toISOString()} />
+            )}
+
+            {completedProfiles !== null && (
+              <StatCard label="Completed Profiles" value={completedProfiles} updatedAt={new Date().toISOString()} />
+            )}
+
+          </div>
+
           <TrendCard title="Users" fetchData={fetchTotalUsersTrend} dateRange={dateRange} color="#3b82f6" />
         </div>
 
