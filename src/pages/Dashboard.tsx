@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { StatCard } from "../components/StatCard";
 import { TotalJobsCard } from "../components/TotalJobsCard";
 import { TopApplicantsCard } from "../components/TopApplicantsCard";
@@ -22,6 +22,7 @@ import { TrendCard } from "../components/TrendCard";
 import { ApplicationStatusTrendCard } from "../components/ApplicationStatusTrendCard";
 import { TopCountriesComparisonCard } from "../components/TopCountriesComparisonCard";
 import { JobsByCompanyComparisonCard } from "../components/JobsByCompanyComparisonCard";
+import { TotalUpdatedUsersCard } from "../components/TotalUpdatedUsersCard";
 import { 
   fetchTotalUsers,
   fetchUserApplicationStatus,
@@ -46,19 +47,24 @@ export const Dashboard = () => {
   const [dateRange, setDateRange] = useState({ start: "", end: "" });
   const [currentUser, setCurrentUser] = useState<any>(null);
 
+  const apiDateRange = useMemo(() => ({
+    start: dateRange.start,
+    end: dateRange.end ? `${dateRange.end}T23:59:59` : ""
+  }), [dateRange]);
+
   const loadInsights = useCallback(async () => {
     try {
-      const users = await fetchTotalUsers(dateRange);
+      const users = await fetchTotalUsers(apiDateRange);
       setData(users);
 
-      const usersAppStatus = await fetchUserApplicationStatus(1, 'all', 'applied', dateRange);
+      const usersAppStatus = await fetchUserApplicationStatus(1, 'all', 'applied', apiDateRange);
       setUsersApplied(usersAppStatus.total);
 
-      const applicantsSummary = await fetchTopApplicantsSummary(1, 'all', dateRange);
+      const applicantsSummary = await fetchTopApplicantsSummary(1, 'all', apiDateRange);
       const totalApps = applicantsSummary.reduce((sum, u) => sum + (u.totalApplications || 0), 0);
       setTotalApplications(totalApps);
 
-      const incomplete = await fetchIncompleteProfiles(1, 'all', dateRange);
+      const incomplete = await fetchIncompleteProfiles(1, 'all', apiDateRange);
       setCompletedProfiles(users.value - incomplete.total);
 
       setError(null);
@@ -68,7 +74,7 @@ export const Dashboard = () => {
     } finally {
       setLoading(false);
     }
-  }, [dateRange]);
+  }, [apiDateRange]);
 
 
   useEffect(() => {
@@ -148,6 +154,7 @@ export const Dashboard = () => {
         {completedProfiles !== null && (
           <StatCard label="Total Completed Profiles" value={completedProfiles} updatedAt={data?.updatedAt} />
         )}
+        <TotalUpdatedUsersCard dateRange={apiDateRange} />
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(400px, 1fr))", gap: "24px" }}>
@@ -159,60 +166,60 @@ export const Dashboard = () => {
         
         {loading && !data && <div>Loading insights...</div>}
 
-        <TrendCard title="Users" fetchData={fetchTotalUsersTrend} dateRange={dateRange} color="#3b82f6" style={{ gridColumn: "span 2" }} />
+        <TrendCard title="Users" fetchData={fetchTotalUsersTrend} dateRange={apiDateRange} color="#3b82f6" style={{ gridColumn: "span 2" }} />
 
         <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-          <TotalJobsCard dateRange={dateRange} />
-          <TrendCard title="Jobs" fetchData={fetchTotalJobsTrend} dateRange={dateRange} color="#10b981" />
+          <TotalJobsCard dateRange={apiDateRange} />
+          <TrendCard title="Jobs" fetchData={fetchTotalJobsTrend} dateRange={apiDateRange} color="#10b981" />
         </div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-          <TotalTicketsCard dateRange={dateRange} />
-          <TrendCard title="Tickets" fetchData={fetchTotalTicketsTrend} dateRange={dateRange} color="#f59e0b" />
+          <TotalTicketsCard dateRange={apiDateRange} />
+          <TrendCard title="Tickets" fetchData={fetchTotalTicketsTrend} dateRange={apiDateRange} color="#f59e0b" />
         </div>
 
         {/* <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-          <TotalFeedsCard dateRange={dateRange} />
-          <TrendCard title="Feeds" fetchData={fetchTotalFeedsTrend} dateRange={dateRange} color="#8b5cf6" />
+          <TotalFeedsCard dateRange={apiDateRange} />
+          <TrendCard title="Feeds" fetchData={fetchTotalFeedsTrend} dateRange={apiDateRange} color="#8b5cf6" />
         </div> */}
 
-        <EmployerPolicyStatusCard dateRange={dateRange} />
+        <EmployerPolicyStatusCard dateRange={apiDateRange} />
 
         <StatusDistributionCard />
         
-        <ApplicationStatusTrendCard dateRange={dateRange} />
+        <ApplicationStatusTrendCard dateRange={apiDateRange} />
 
-        <TopApplicantsCard dateRange={dateRange} />
+        <TopApplicantsCard dateRange={apiDateRange} />
 
-        <TopJobRolesCard dateRange={dateRange} />
+        <TopJobRolesCard dateRange={apiDateRange} />
 
-        <TopTargetRolesCard dateRange={dateRange} />
+        <TopTargetRolesCard dateRange={apiDateRange} />
 
-        <TopApplicantsSummaryCard dateRange={dateRange} />
+        <TopApplicantsSummaryCard dateRange={apiDateRange} />
 
-        <UserApplicationListCard title="Users Who Applied" filter="applied" dateRange={dateRange} currentUser={currentUser} />
+        <UserApplicationListCard title="Users Who Applied" filter="applied" dateRange={apiDateRange} currentUser={currentUser} />
 
-        <UserApplicationListCard title="Users Who Have Not Applied" filter="not_applied" dateRange={dateRange} currentUser={currentUser} />
+        <UserApplicationListCard title="Users Who Have Not Applied" filter="not_applied" dateRange={apiDateRange} currentUser={currentUser} />
 
-        <JobsByCompanyCard dateRange={dateRange} />
+        <JobsByCompanyCard dateRange={apiDateRange} />
 
-        <JobsByCompanyComparisonCard dateRange={dateRange} />
+        <JobsByCompanyComparisonCard dateRange={apiDateRange} />
 
-        <CompanyPopularityCard dateRange={dateRange} />
+        <CompanyPopularityCard dateRange={apiDateRange} />
 
-        <JobStatusListCard dateRange={dateRange} />
+        <JobStatusListCard dateRange={apiDateRange} />
 
-        <CompanyStatusCountsCard dateRange={dateRange} />
+        <CompanyStatusCountsCard dateRange={apiDateRange} />
 
-        <TopCountriesCard dateRange={dateRange} />
+        <TopCountriesCard dateRange={apiDateRange} />
 
-        <TopCountriesComparisonCard dateRange={dateRange} />
+        <TopCountriesComparisonCard dateRange={apiDateRange} />
 
-        <UserFeedEngagementCard dateRange={dateRange} currentUser={currentUser} />
+        <UserFeedEngagementCard dateRange={apiDateRange} currentUser={currentUser} />
 
-        <TopCommunitiesCard dateRange={dateRange} />
+        <TopCommunitiesCard dateRange={apiDateRange} />
 
-        <IncompleteProfilesCard dateRange={dateRange} />
+        <IncompleteProfilesCard dateRange={apiDateRange} />
       </div>
     </>
   );
