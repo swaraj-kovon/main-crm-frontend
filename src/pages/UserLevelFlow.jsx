@@ -90,13 +90,48 @@ const UserLevelFlow = () => {
       };
       const response = await axios.get(`${API_URL}/crm/user-level`, { params });
       const { data: responseData, total } = response.data;
-      const initializedData = responseData.map(u => ({
-        ...u,
-        assignee: u.crmData?.assignee || "",
-        tempDisposition: u.crmData?.callDisposition || "",
-        tempNotes: u.crmData?.notes || "",
-        tempNextCallDate: u.crmData?.nextCallDate ? u.crmData.nextCallDate.split('T')[0] : ""
-      }));
+
+      // Fetch Supabase overrides (Profiles & Assignments)
+      const userIds = responseData.map(u => u._id);
+      
+      const [sbProfilesResult, sbCrmResult, sbAssignmentsResult] = await Promise.all([
+        supabase.from('user_profiles').select('*').in('user_id', userIds),
+        supabase.from('userflow_crm').select('*').in('user_id', userIds),
+        supabase.from('user_assignments').select('*').in('user_id', userIds)
+      ]);
+
+      const sbProfiles = sbProfilesResult.data || [];
+      const sbCrmData = sbCrmResult.data || [];
+      const sbAssignments = sbAssignmentsResult.data || [];
+
+      const initializedData = responseData.map(u => {
+        const sbProfile = sbProfiles.find(p => p.user_id === u._id);
+        const sbCrm = sbCrmData.find(c => c.user_id === u._id);
+        const sbAssignment = sbAssignments.find(a => a.user_id === u._id);
+
+        return {
+          ...u,
+          // Merge Profile Data (Supabase > MongoDB)
+          skills: sbProfile?.skills || u.skills,
+          language: sbProfile?.language || u.language,
+          education: sbProfile?.education || u.education,
+          experience: sbProfile?.experience || u.experience,
+          dob: sbProfile?.dob || u.dob,
+          gender: sbProfile?.gender || u.gender,
+          location: sbProfile?.location || u.location,
+          internationalExp: sbProfile?.international_exp ?? u.internationalExp,
+          domesticExp: sbProfile?.domestic_exp ?? u.domesticExp,
+          
+          // Merge CRM Data (Supabase > MongoDB)
+          fullName: sbCrm?.full_name || u.fullName,
+          targetCountry: sbCrm?.target_country || u.targetCountry,
+          targetJobRole: sbCrm?.target_job_role || u.targetJobRole,
+          assignee: sbAssignment?.assigned_to || u.crmData?.assignee || "",
+          tempDisposition: sbCrm?.call_disposition || u.crmData?.callDisposition || "",
+          tempNotes: sbCrm?.notes || u.crmData?.notes || "",
+          tempNextCallDate: sbCrm?.next_call_date ? sbCrm.next_call_date.split('T')[0] : (u.crmData?.nextCallDate ? u.crmData.nextCallDate.split('T')[0] : "")
+        };
+      });
 
       let filteredData = initializedData;
       if (filterMissingDetails === 'Yes') {
@@ -123,11 +158,6 @@ const UserLevelFlow = () => {
     setData(prev => prev.map(u => u._id === user._id ? { ...u, assignee } : u));
 
     try {
-      // Update CRM API
-      await axios.post(`${API_URL}/crm/crm-update`, {
-        userId: user._id,
-        assignee: assignee
-      });
       // Sync with Supabase for Dashboard
       await supabase.from('user_assignments').upsert({ user_id: user._id, assigned_to: assignee });
     } catch (error) {
@@ -156,9 +186,6 @@ const UserLevelFlow = () => {
       // Optimistic update
       setData(prev => prev.map(u => u._id === userId ? { ...u, ...payload } : u));
       
-      // Assuming standard user update endpoint exists
-      await axios.patch(`${API_URL}/users/${userId}`, payload);
-
       // Sync to Supabase (user_profiles)
       const sbPayload = { user_id: userId, updated_at: new Date().toISOString(), ...payload };
       // Map camelCase to snake_case for specific fields if necessary, but here payload keys match what we want except exp
@@ -202,34 +229,11 @@ const UserLevelFlow = () => {
     }));
 
     try {
-      await axios.post(`${API_URL}/crm/crm-update`, {
-        userId: modifiedUser._id,
-        callDisposition: modifiedUser.tempDisposition,
-        notes: modifiedUser.tempNotes,
-        nextCallDate: modifiedUser.tempNextCallDate || null,
-        fullName: modifiedUser.fullName,
-        targetCountry: modifiedUser.targetCountry,
-        targetJobRole: modifiedUser.targetJobRole,
-      });
-      alert('Saved successfully');
-
-      // Also save User Profile details if they were modified (and originally empty)
-      const originalUser = data.find(u => u._id === modifiedUser._id);
-      const userPayload = {};
-      
-      if (modifiedUser.skills) userPayload.skills = modifiedUser.skills;
-      if (modifiedUser.language) userPayload.language = modifiedUser.language;
-      if (modifiedUser.education) userPayload.education = modifiedUser.education;
-      if (modifiedUser.experience) userPayload.experience = modifiedUser.experience;
-      if (modifiedUser.dob) userPayload.dob = modifiedUser.dob;
-      if (modifiedUser.gender) userPayload.gender = modifiedUser.gender;
-      if (modifiedUser.location) userPayload.location = modifiedUser.location;
-      if ((modifiedUser.internationalExp || modifiedUser.internationalExp === 0) && (originalUser.internationalExp === undefined || originalUser.internationalExp === null)) userPayload.internationalExp = modifiedUser.internationalExp;
-      if ((modifiedUser.domesticExp || modifiedUser.domesticExp === 0) && (originalUser.domesticExp === undefined || originalUser.domesticExp === null)) userPayload.domesticExp = modifiedUser.domesticExp;
-
-      // Sync Profile Data to Supabase
+      // 1. Save Profile Data to user_profiles
       const sbProfilePayload = {
         user_id: modifiedUser._id,
+        
+        // Profile Fields
         skills: modifiedUser.skills,
         language: modifiedUser.language,
         education: modifiedUser.education,
@@ -242,25 +246,39 @@ const UserLevelFlow = () => {
         updated_at: new Date().toISOString()
       };
 
-      if (Object.keys(userPayload).length > 0) {
-        await axios.patch(`${API_URL}/users/${modifiedUser._id}`, userPayload);
-      }
-      
-      // Upsert to Supabase
-      const { error: sbError } = await supabase.from('user_profiles').upsert(sbProfilePayload);
-      if (sbError) console.error("Error syncing to Supabase:", sbError);
-      
-      const needsRefetch = 
-        (modifiedUser.fullName && modifiedUser.fullName !== originalUser?.fullName) ||
-        (modifiedUser.targetCountry.name && modifiedUser.targetCountry.name !== originalUser?.targetCountry) ||
-        (modifiedUser.targetJobRole.name && modifiedUser.targetJobRole.name !== originalUser?.targetJobRole);
+      const { error: profileError } = await supabase.from('user_profiles').upsert(sbProfilePayload);
+      if (profileError) throw profileError;
 
-      if (needsRefetch) {
-        // A small delay can help ensure the database has processed the update before we query it again.
-        setTimeout(() => fetchData(), 500);
+      // 2. Save CRM Data to userflow_crm
+      const crmPayload = {
+        user_id: modifiedUser._id,
+        call_disposition: modifiedUser.tempDisposition,
+        notes: modifiedUser.tempNotes,
+        next_call_date: modifiedUser.tempNextCallDate || null,
+        full_name: modifiedUser.fullName,
+        target_country: typeof modifiedUser.targetCountry === 'object' ? modifiedUser.targetCountry.name : modifiedUser.targetCountry,
+        target_job_role: typeof modifiedUser.targetJobRole === 'object' ? modifiedUser.targetJobRole.name : modifiedUser.targetJobRole,
+        target_country_id: typeof modifiedUser.targetCountry === 'object' ? modifiedUser.targetCountry.id : null,
+        target_job_role_id: typeof modifiedUser.targetJobRole === 'object' ? modifiedUser.targetJobRole.id : null,
+      };
+
+      const { data: existingCrm } = await supabase.from('userflow_crm').select('id').eq('user_id', modifiedUser._id).maybeSingle();
+      
+      if (existingCrm) {
+        const { error: crmError } = await supabase.from('userflow_crm').update(crmPayload).eq('id', existingCrm.id);
+        if (crmError) throw crmError;
+      } else {
+        const { error: crmError } = await supabase.from('userflow_crm').insert(crmPayload);
+        if (crmError) throw crmError;
       }
+      
+      alert('Saved successfully to Supabase');
+      
+      // Refetch to ensure we see the merged data
+      setTimeout(() => fetchData(), 500);
+
     } catch (error) {
-      console.error("Error saving CRM data", error);
+      console.error("Error saving data to Supabase", error);
       alert('Error saving data');
       // On error, refetch to revert the optimistic UI update
       fetchData();
