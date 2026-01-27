@@ -217,13 +217,13 @@ const UserLevelFlow = () => {
       const originalUser = data.find(u => u._id === modifiedUser._id);
       const userPayload = {};
       
-      if (modifiedUser.skills?.length && (!originalUser.skills || !originalUser.skills.length)) userPayload.skills = modifiedUser.skills;
-      if (modifiedUser.language?.motherTongue && !originalUser.language?.motherTongue) userPayload.language = modifiedUser.language;
-      if (modifiedUser.education?.length && (!originalUser.education || !originalUser.education.length)) userPayload.education = modifiedUser.education;
-      if (modifiedUser.experience?.length && (!originalUser.experience || !originalUser.experience.length)) userPayload.experience = modifiedUser.experience;
-      if (modifiedUser.dob && !originalUser.dob) userPayload.dob = modifiedUser.dob;
-      if (modifiedUser.gender && !originalUser.gender) userPayload.gender = modifiedUser.gender;
-      if (modifiedUser.location?.city && !originalUser.location?.city) userPayload.location = modifiedUser.location;
+      if (modifiedUser.skills) userPayload.skills = modifiedUser.skills;
+      if (modifiedUser.language) userPayload.language = modifiedUser.language;
+      if (modifiedUser.education) userPayload.education = modifiedUser.education;
+      if (modifiedUser.experience) userPayload.experience = modifiedUser.experience;
+      if (modifiedUser.dob) userPayload.dob = modifiedUser.dob;
+      if (modifiedUser.gender) userPayload.gender = modifiedUser.gender;
+      if (modifiedUser.location) userPayload.location = modifiedUser.location;
       if ((modifiedUser.internationalExp || modifiedUser.internationalExp === 0) && (originalUser.internationalExp === undefined || originalUser.internationalExp === null)) userPayload.internationalExp = modifiedUser.internationalExp;
       if ((modifiedUser.domesticExp || modifiedUser.domesticExp === 0) && (originalUser.domesticExp === undefined || originalUser.domesticExp === null)) userPayload.domesticExp = modifiedUser.domesticExp;
 
@@ -340,8 +340,8 @@ const UserLevelFlow = () => {
       filteredData.forEach((user, index) => {
         const skills = user.skills ? user.skills.join(', ') : '';
         const languages = user.language ? `${user.language.motherTongue || ''} | ${(user.language.other || []).join(', ')}` : '';
-        const education = user.education ? user.education.map(e => `${e.degree} at ${e.institutionName}`).join('; ') : '';
-        const experience = user.experience ? user.experience.map(e => `${e.position} at ${e.companyName}`).join('; ') : '';
+        const education = user.education ? (Array.isArray(user.education) ? user.education.map(e => `${e.degree} at ${e.institutionName}`).join('; ') : user.education) : '';
+        const experience = user.experience ? (Array.isArray(user.experience) ? user.experience.map(e => `${e.position} at ${e.companyName}`).join('; ') : user.experience) : '';
         const location = user.location ? `${user.location.city || ''} ${user.location.state || ''} ${user.location.country || ''}` : '';
 
         const row = [
@@ -534,7 +534,7 @@ const UserLevelFlow = () => {
 
               {/* Education */}
               <td className="p-2 border text-sm">
-                {user.education && user.education.length > 0 ? (
+                {user.education && Array.isArray(user.education) && user.education.length > 0 ? (
                   user.education.map((e, i) => (
                     <div key={i} className="mb-2 pb-1 border-b last:border-0">
                       <div className="font-semibold">{e.institutionName}</div>
@@ -543,13 +543,13 @@ const UserLevelFlow = () => {
                     </div>
                   ))
                 ) : (
-                  <span className="text-gray-400 text-xs italic">No Education</span>
+                  user.education && !Array.isArray(user.education) ? user.education : <span className="text-gray-400 text-xs italic">No Education</span>
                 )}
               </td>
 
               {/* Experience */}
               <td className="p-2 border text-sm">
-                {user.experience && user.experience.length > 0 ? (
+                {user.experience && Array.isArray(user.experience) && user.experience.length > 0 ? (
                   user.experience.map((e, i) => (
                     <div key={i} className="mb-2 pb-1 border-b last:border-0">
                       <div className="font-semibold">{e.companyName}</div>
@@ -558,7 +558,7 @@ const UserLevelFlow = () => {
                     </div>
                   ))
                 ) : (
-                  <span className="text-gray-400 text-xs italic">No Experience</span>
+                  user.experience && !Array.isArray(user.experience) ? user.experience : <span className="text-gray-400 text-xs italic">No Experience</span>
                 )}
               </td>
 

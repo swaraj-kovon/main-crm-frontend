@@ -22,7 +22,6 @@ import { TrendCard } from "../components/TrendCard";
 import { ApplicationStatusTrendCard } from "../components/ApplicationStatusTrendCard";
 import { TopCountriesComparisonCard } from "../components/TopCountriesComparisonCard";
 import { JobsByCompanyComparisonCard } from "../components/JobsByCompanyComparisonCard";
-import { TotalUpdatedUsersCard } from "../components/TotalUpdatedUsersCard";
 import { 
   fetchTotalUsers,
   fetchUserApplicationStatus,
@@ -154,7 +153,6 @@ export const Dashboard = () => {
         {completedProfiles !== null && (
           <StatCard label="Total Completed Profiles" value={completedProfiles} updatedAt={data?.updatedAt} />
         )}
-        <TotalUpdatedUsersCard dateRange={apiDateRange} />
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(400px, 1fr))", gap: "24px" }}>

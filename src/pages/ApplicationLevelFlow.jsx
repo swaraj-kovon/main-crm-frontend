@@ -83,20 +83,24 @@ const UserDetailsPopup = ({ userId }) => {
             <div>Languages: {user.language ? [user.language.motherTongue, ...(user.language.other || [])].filter(Boolean).join(', ') : '-'}</div>
             
             <h4 className="font-semibold mt-4 border-b pb-1">Education</h4>
-            {(user.education || []).length > 0 ? user.education.map((edu, i) => (
+            {Array.isArray(user.education) && user.education.length > 0 ? user.education.map((edu, i) => (
               <div key={i} className="p-2 border rounded bg-gray-50 mt-2">
                 <div className="font-medium">{edu.degree}</div>
                 <div className="text-xs text-gray-500">{edu.institutionName}</div>
               </div>
-            )) : <p className="text-gray-500">No education info</p>}
+            )) : (
+              user.education && !Array.isArray(user.education) ? <div className="p-2 border rounded bg-gray-50 mt-2">{user.education}</div> : <p className="text-gray-500">No education info</p>
+            )}
 
             <h4 className="font-semibold mt-4 border-b pb-1">Experience</h4>
-            {(user.experience || []).length > 0 ? user.experience.map((exp, i) => (
+            {Array.isArray(user.experience) && user.experience.length > 0 ? user.experience.map((exp, i) => (
               <div key={i} className="p-2 border rounded bg-gray-50 mt-2">
                 <div className="font-medium">{exp.position}</div>
                 <div className="text-xs text-gray-500">{exp.companyName}</div>
               </div>
-            )) : <p className="text-gray-500">No experience info</p>}
+            )) : (
+              user.experience && !Array.isArray(user.experience) ? <div className="p-2 border rounded bg-gray-50 mt-2">{user.experience}</div> : <p className="text-gray-500">No experience info</p>
+            )}
           </>
         ) : <p>User details not found.</p>}
       </div>

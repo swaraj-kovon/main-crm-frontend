@@ -417,6 +417,13 @@ const ModifyModal = ({ record, type, onClose, onSave }) => {
     const [historyLoading, setHistoryLoading] = useState(true);
     const [countriesList, setCountriesList] = useState([]);
     const [jobRolesList, setJobRolesList] = useState([]);
+    const [skills, setSkills] = useState(record.skills ? record.skills.join(', ') : "");
+    const [languages, setLanguages] = useState(record.language ? `${record.language.motherTongue || ''} | ${(record.language.other || []).join(', ')}` : "");
+    const [dob, setDob] = useState(record.dob ? getSafeDate(record.dob) : "");
+    const [gender, setGender] = useState(record.gender || "");
+    const [location, setLocation] = useState(record.location ? [record.location.city, record.location.state, record.location.country].filter(Boolean).join(', ') : "");
+    const [education, setEducation] = useState(typeof record.education === 'string' ? record.education : (record.education ? JSON.stringify(record.education, null, 2) : ""));
+    const [experience, setExperience] = useState(typeof record.experience === 'string' ? record.experience : (record.experience ? JSON.stringify(record.experience, null, 2) : ""));
 
     useEffect(() => {
         const fetchHistory = async () => {
@@ -457,6 +464,19 @@ const ModifyModal = ({ record, type, onClose, onSave }) => {
         const selectedCountry = countriesList.find(c => c.name === country);
         const selectedJobRole = jobRolesList.find(r => r.title === jobRole);
 
+        const [motherTongue, otherLangs] = languages.split('|');
+        const parsedLanguage = {
+            motherTongue: motherTongue?.trim(),
+            other: otherLangs ? otherLangs.split(',').map(s => s.trim()).filter(Boolean) : []
+        };
+
+        const [city, state, countryLoc] = location.split(',');
+        const parsedLocation = {
+            city: city?.trim(),
+            state: state?.trim(),
+            country: countryLoc?.trim()
+        };
+
         onSave({
             ...record,
             tempDisposition: disposition,
@@ -469,6 +489,13 @@ const ModifyModal = ({ record, type, onClose, onSave }) => {
             targetJobRole: selectedJobRole
                 ? { id: selectedJobRole._id, name: selectedJobRole.title }
                 : { name: jobRole },
+            skills: skills.split(',').map(s => s.trim()).filter(Boolean),
+            language: parsedLanguage,
+            dob: dob,
+            gender: gender,
+            location: parsedLocation,
+            education: education,
+            experience: experience
         });
         onClose();
     };
@@ -535,6 +562,52 @@ const ModifyModal = ({ record, type, onClose, onSave }) => {
                                         </datalist>
                                     </div>
                                 </div>
+
+                                {type === 'user' && (
+                                    <>
+                                        <hr className="my-4" />
+                                        <h3 className="font-bold mb-2">Profile Details</h3>
+                                        <div className="space-y-3">
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">Skills (comma separated)</label>
+                                                <input type="text" className="w-full p-2 border rounded" value={skills} onChange={e => setSkills(e.target.value)} />
+                                            </div>
+                                            <div className="flex gap-4">
+                                                <div className="w-1/2">
+                                                    <label className="block text-sm font-medium text-gray-700 mb-1">Languages (Mother | Other1, Other2)</label>
+                                                    <input type="text" className="w-full p-2 border rounded" value={languages} onChange={e => setLanguages(e.target.value)} />
+                                                </div>
+                                                <div className="w-1/2">
+                                                    <label className="block text-sm font-medium text-gray-700 mb-1">Gender</label>
+                                                    <select className="w-full p-2 border rounded" value={gender} onChange={e => setGender(e.target.value)}>
+                                                        <option value="">Select</option>
+                                                        <option value="male">Male</option>
+                                                        <option value="female">Female</option>
+                                                        <option value="other">Other</option>
+                                                    </select>
+                                                </div>
+                                            </div>
+                                            <div className="flex gap-4">
+                                                <div className="w-1/2">
+                                                    <label className="block text-sm font-medium text-gray-700 mb-1">DOB</label>
+                                                    <input type="date" className="w-full p-2 border rounded" value={dob} onChange={e => setDob(e.target.value)} />
+                                                </div>
+                                                <div className="w-1/2">
+                                                    <label className="block text-sm font-medium text-gray-700 mb-1">Location (City, State, Country)</label>
+                                                    <input type="text" className="w-full p-2 border rounded" value={location} onChange={e => setLocation(e.target.value)} />
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">Education (JSON)</label>
+                                                <textarea className="w-full p-2 border rounded font-mono text-xs" rows="3" value={education} onChange={e => setEducation(e.target.value)} />
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">Experience (JSON)</label>
+                                                <textarea className="w-full p-2 border rounded font-mono text-xs" rows="3" value={experience} onChange={e => setExperience(e.target.value)} />
+                                            </div>
+                                        </div>
+                                    </>
+                                )}
 
                                 <hr className="my-4" />
 
