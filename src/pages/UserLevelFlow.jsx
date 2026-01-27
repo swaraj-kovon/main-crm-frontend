@@ -334,19 +334,34 @@ const UserLevelFlow = () => {
         filteredData = filteredData.filter(u => u.fullName && u.targetCountry && u.targetJobRole);
       }
 
-      const headers = ['S.No', 'User ID', 'Phone Number', 'Full Name', 'Applied?', 'Latest App Date', 'Target Country', 'Target Job Role', 'Call Disposition', 'Notes', 'Next Call Date'];
+      const headers = ['S.No', 'User ID', 'Created At', 'Phone Number', 'Full Name', 'Skills', 'Languages', 'Education', 'Experience', 'DOB', 'Gender', 'Location', 'Applied?', 'Latest App Date', 'Target Country', 'Target Job Role', 'Assignee', 'Call Disposition', 'Notes', 'Next Call Date'];
       const csvRows = [headers.join(',')];
 
       filteredData.forEach((user, index) => {
+        const skills = user.skills ? user.skills.join(', ') : '';
+        const languages = user.language ? `${user.language.motherTongue || ''} | ${(user.language.other || []).join(', ')}` : '';
+        const education = user.education ? user.education.map(e => `${e.degree} at ${e.institutionName}`).join('; ') : '';
+        const experience = user.experience ? user.experience.map(e => `${e.position} at ${e.companyName}`).join('; ') : '';
+        const location = user.location ? `${user.location.city || ''} ${user.location.state || ''} ${user.location.country || ''}` : '';
+
         const row = [
           index + 1,
           user._id,
+          user.createdAt ? `"${new Date(user.createdAt.$date || user.createdAt).toLocaleString()}"` : '',
           `"${(user.phoneNumber || '').replace(/"/g, '""')}"`,
           `"${(user.fullName || '').replace(/"/g, '""')}"`,
+          `"${skills.replace(/"/g, '""')}"`,
+          `"${languages.replace(/"/g, '""')}"`,
+          `"${education.replace(/"/g, '""')}"`,
+          `"${experience.replace(/"/g, '""')}"`,
+          user.dob ? formatDate(user.dob) : '',
+          user.gender || '',
+          `"${location.replace(/"/g, '""')}"`,
           user.hasApplied ? 'Y' : 'N',
           user.latestApplicationDate ? new Date(user.latestApplicationDate).toLocaleDateString() : '-',
           `"${(user.targetCountry || '').replace(/"/g, '""')}"`,
           `"${(user.targetJobRole || '').replace(/"/g, '""')}"`,
+          `"${(user.assignee || '').replace(/"/g, '""')}"`,
           `"${(user.tempDisposition || '').replace(/"/g, '""')}"`,
           `"${(user.tempNotes || '').replace(/"/g, '""')}"`,
           user.tempNextCallDate || ''

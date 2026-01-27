@@ -331,9 +331,10 @@ const MyActivity = () => {
         }
       }
 
-      const headers = ['Application ID', 'User ID', 'Created At', 'Full Name', 'Phone Number', 'Target Country', 'Target Job Role', 'Job Title', 'Company', 'Assignee'];
+      const headers = ['Application ID', 'User ID', 'Created At', 'Full Name', 'Phone Number', 'Target Country', 'Target Job Role', 'Job Title', 'Company', 'Salary', 'Assignee'];
       const csvRows = [headers.join(',')];
       allData.forEach(user => {
+        const salary = user.jobSnapshot?.salary ? `${user.jobSnapshot.salary.min || 0} - ${user.jobSnapshot.salary.max || 0} ${user.jobSnapshot.salary.currency || ''}` : '';
         const row = [
           user._id,
           user.userId,
@@ -344,6 +345,7 @@ const MyActivity = () => {
           `"${(user.targetJobRole || '').replace(/"/g, '""')}"`,
           `"${(user.jobTitle || '').replace(/"/g, '""')}"`,
           `"${(user.companyName || '').replace(/"/g, '""')}"`,
+          `"${salary.replace(/"/g, '""')}"`,
           `"${(user.assignee || '').replace(/"/g, '""')}"`
         ];
         csvRows.push(row.join(','));
