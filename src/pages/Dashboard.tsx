@@ -140,13 +140,13 @@ export const Dashboard = () => {
           <StatCard label="Total Users" value={data.value} updatedAt={data.updatedAt} />
         )}
         {usersApplied !== null && (
-          <StatCard label="Users Applied" value={usersApplied} updatedAt={data?.updatedAt} />
+          <StatCard label="Total Users Applied" value={usersApplied} updatedAt={data?.updatedAt} />
         )}
         {totalApplications !== null && (
-          <StatCard label="Applications" value={totalApplications} updatedAt={data?.updatedAt} />
+          <StatCard label="Total Applications" value={totalApplications} updatedAt={data?.updatedAt} />
         )}
         {completedProfiles !== null && (
-          <StatCard label="Completed Profiles" value={completedProfiles} updatedAt={data?.updatedAt} />
+          <StatCard label="Total Completed Profiles" value={completedProfiles} updatedAt={data?.updatedAt} />
         )}
       </div>
 
@@ -171,10 +171,10 @@ export const Dashboard = () => {
           <TrendCard title="Tickets" fetchData={fetchTotalTicketsTrend} dateRange={dateRange} color="#f59e0b" />
         </div>
 
-        <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+        {/* <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
           <TotalFeedsCard dateRange={dateRange} />
           <TrendCard title="Feeds" fetchData={fetchTotalFeedsTrend} dateRange={dateRange} color="#8b5cf6" />
-        </div>
+        </div> */}
 
         <EmployerPolicyStatusCard dateRange={dateRange} />
 

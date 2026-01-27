@@ -121,6 +121,7 @@ const ApplicationLevelFlow = () => {
   const [totalRecords, setTotalRecords] = useState(0);
   const [currentUser, setCurrentUser] = useState(null);
   const [assignees, setAssignees] = useState([]);
+  const [isDownloading, setIsDownloading] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -298,9 +299,13 @@ const ApplicationLevelFlow = () => {
 
   const downloadCSV = async () => {
     try {
+      setIsDownloading(true);
+      let allData = [];
+      const limit = 100;
+
       const params = {
         page: 1,
-        limit: 100000,
+        limit,
         userInfo: filterUserInfo,
         country: filterCountry,
         jobRole: filterJobRole,
@@ -308,17 +313,42 @@ const ApplicationLevelFlow = () => {
         assignee: filterAssignee,
         missingDetails: filterMissingDetails,
       };
-      
+
+      // Fetch first page to get total count
       const response = await axios.get('/api/crm/application-level', { params });
-      const { data: responseData } = response.data;
+      const { data: firstPageData, total } = response.data;
       
-      const allData = responseData.map(u => ({
-        ...u,
-        assignee: u.crmData?.assignee || "",
-        tempDisposition: u.crmData?.callDisposition || "",
-        tempNotes: u.crmData?.notes || "",
-        tempNextCallDate: u.crmData?.nextCallDate ? u.crmData.nextCallDate.split('T')[0] : ""
-      }));
+      const mapRecord = (u) => ({
+            ...u,
+            assignee: u.crmData?.assignee || "",
+            tempDisposition: u.crmData?.callDisposition || "",
+            tempNotes: u.crmData?.notes || "",
+            tempNextCallDate: u.crmData?.nextCallDate ? u.crmData.nextCallDate.split('T')[0] : ""
+      });
+
+      if (firstPageData && firstPageData.length > 0) {
+        allData.push(...firstPageData.map(mapRecord));
+      }
+
+      const totalPages = Math.ceil(total / limit);
+      
+      if (totalPages > 1) {
+        const batchSize = 5;
+        for (let i = 2; i <= totalPages; i += batchSize) {
+          const batchPromises = [];
+          for (let j = i; j < i + batchSize && j <= totalPages; j++) {
+            batchPromises.push(axios.get('/api/crm/application-level', { params: { ...params, page: j } }));
+          }
+          
+          const batchResponses = await Promise.all(batchPromises);
+          batchResponses.forEach(res => {
+            const { data: pageData } = res.data;
+            if (pageData && pageData.length > 0) {
+              allData.push(...pageData.map(mapRecord));
+            }
+          });
+        }
+      }
 
       let filteredData = allData;
       if (filterMissingDetails === 'Yes') {
@@ -363,6 +393,8 @@ const ApplicationLevelFlow = () => {
     } catch (error) {
       console.error("Error downloading CSV", error);
       alert("Failed to download CSV");
+    } finally {
+      setIsDownloading(false);
     }
   };
 
@@ -462,7 +494,9 @@ const ApplicationLevelFlow = () => {
               <option value="unaddressed">Unaddressed Only</option>
               <option value="filtered">Filtered View</option>
             </select>
-            <button onClick={downloadCSV} className="bg-gray-800 text-white px-4 py-2 hover:bg-gray-700">Download CSV</button>
+            <button onClick={downloadCSV} disabled={isDownloading} className="bg-gray-800 text-white px-4 py-2 hover:bg-gray-700 disabled:bg-gray-400">
+              {isDownloading ? 'Downloading...' : 'Download CSV'}
+            </button>
           </div>
         </div>
       </div>

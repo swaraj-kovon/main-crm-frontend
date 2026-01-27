@@ -26,6 +26,7 @@ const MyActivity = () => {
   const [selectedRecord, setSelectedRecord] = useState(null);
   const [modalType, setModalType] = useState(null); // 'user' or 'application'
   const [lastUpdated, setLastUpdated] = useState(new Date());
+  const [isDownloading, setIsDownloading] = useState(false);
 
   // --- User Level State ---
   const [userData, setUserData] = useState([]);
@@ -199,23 +200,53 @@ const MyActivity = () => {
 
   const downloadUserCSV = async () => {
     try {
+      setIsDownloading(true);
+      let allData = [];
+      const limit = 100;
+
       const params = {
         page: 1,
-        limit: 100000,
+        limit,
         applied: userFilters.applied,
         country: userFilters.country,
         jobRole: userFilters.jobRole,
         assignee: currentUser.email,
       };
+
       const response = await axios.get('/api/crm/user-level', { params });
-      const { data: responseData } = response.data;
-      const allData = responseData.map(u => ({
-        ...u,
-        assignee: u.crmData?.assignee || "",
-        tempDisposition: u.crmData?.callDisposition || "",
-        tempNotes: u.crmData?.notes || "",
-        tempNextCallDate: u.crmData?.nextCallDate ? u.crmData.nextCallDate.split('T')[0] : ""
-      }));
+      const { data: firstPageData, total } = response.data;
+
+      const mapRecord = (u) => ({
+            ...u,
+            assignee: u.crmData?.assignee || "",
+            tempDisposition: u.crmData?.callDisposition || "",
+            tempNotes: u.crmData?.notes || "",
+            tempNextCallDate: u.crmData?.nextCallDate ? u.crmData.nextCallDate.split('T')[0] : ""
+      });
+
+      if (firstPageData && firstPageData.length > 0) {
+        allData.push(...firstPageData.map(mapRecord));
+      }
+
+      const totalPages = Math.ceil(total / limit);
+
+      if (totalPages > 1) {
+        const batchSize = 5;
+        for (let i = 2; i <= totalPages; i += batchSize) {
+          const batchPromises = [];
+          for (let j = i; j < i + batchSize && j <= totalPages; j++) {
+            batchPromises.push(axios.get('/api/crm/user-level', { params: { ...params, page: j } }));
+          }
+
+          const batchResponses = await Promise.all(batchPromises);
+          batchResponses.forEach(res => {
+            const { data: pageData } = res.data;
+            if (pageData && pageData.length > 0) {
+              allData.push(...pageData.map(mapRecord));
+            }
+          });
+        }
+      }
 
       const headers = ['S.No', 'User ID', 'Phone Number', 'Full Name', 'Applied?', 'Latest App Date', 'Target Country', 'Target Job Role', 'Call Disposition', 'Notes', 'Next Call Date'];
       const csvRows = [headers.join(',')];
@@ -244,29 +275,61 @@ const MyActivity = () => {
       window.URL.revokeObjectURL(url);
     } catch (error) {
       console.error("Error downloading user CSV", error);
+    } finally {
+      setIsDownloading(false);
     }
   };
 
   const downloadAppCSV = async () => {
     try {
+      setIsDownloading(true);
+      let allData = [];
+      const limit = 100;
+
       const params = {
         page: 1,
-        limit: 100000,
+        limit,
         userInfo: appFilters.userInfo,
         country: appFilters.country,
         jobRole: appFilters.jobRole,
         disposition: appFilters.disposition,
         assignee: currentUser.email,
       };
+
       const response = await axios.get('/api/crm/application-level', { params });
-      const { data: responseData } = response.data;
-      const allData = responseData.map(u => ({
-        ...u,
-        assignee: u.crmData?.assignee || "",
-        tempDisposition: u.crmData?.callDisposition || "",
-        tempNotes: u.crmData?.notes || "",
-        tempNextCallDate: u.crmData?.nextCallDate ? u.crmData.nextCallDate.split('T')[0] : ""
-      }));
+      const { data: firstPageData, total } = response.data;
+
+      const mapRecord = (u) => ({
+            ...u,
+            assignee: u.crmData?.assignee || "",
+            tempDisposition: u.crmData?.callDisposition || "",
+            tempNotes: u.crmData?.notes || "",
+            tempNextCallDate: u.crmData?.nextCallDate ? u.crmData.nextCallDate.split('T')[0] : ""
+      });
+
+      if (firstPageData && firstPageData.length > 0) {
+        allData.push(...firstPageData.map(mapRecord));
+      }
+
+      const totalPages = Math.ceil(total / limit);
+
+      if (totalPages > 1) {
+        const batchSize = 5;
+        for (let i = 2; i <= totalPages; i += batchSize) {
+          const batchPromises = [];
+          for (let j = i; j < i + batchSize && j <= totalPages; j++) {
+            batchPromises.push(axios.get('/api/crm/application-level', { params: { ...params, page: j } }));
+          }
+
+          const batchResponses = await Promise.all(batchPromises);
+          batchResponses.forEach(res => {
+            const { data: pageData } = res.data;
+            if (pageData && pageData.length > 0) {
+              allData.push(...pageData.map(mapRecord));
+            }
+          });
+        }
+      }
 
       const headers = ['Application ID', 'User ID', 'Created At', 'Full Name', 'Phone Number', 'Target Country', 'Target Job Role', 'Job Title', 'Company', 'Assignee'];
       const csvRows = [headers.join(',')];
@@ -294,6 +357,8 @@ const MyActivity = () => {
       window.URL.revokeObjectURL(url);
     } catch (error) {
       console.error("Error downloading app CSV", error);
+    } finally {
+      setIsDownloading(false);
     }
   };
 
@@ -364,7 +429,9 @@ const MyActivity = () => {
               <option value="">Filter Job Role: All</option>
               {uniqueUserRoles.map(r => <option key={r} value={r}>{r}</option>)}
             </select>
-            <button onClick={downloadUserCSV} className="bg-gray-800 text-white px-4 py-2 rounded hover:bg-gray-700 ml-auto">Download CSV</button>
+            <button onClick={downloadUserCSV} disabled={isDownloading} className="bg-gray-800 text-white px-4 py-2 rounded hover:bg-gray-700 ml-auto disabled:bg-gray-400">
+              {isDownloading ? 'Downloading...' : 'Download CSV'}
+            </button>
           </div>
 
           {userLoading ? <div>Loading...</div> : (
@@ -460,7 +527,9 @@ const MyActivity = () => {
               <option value="">Filter Disposition: All</option>
               {DISPOSITION_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
             </select>
-            <button onClick={downloadAppCSV} className="bg-gray-800 text-white px-4 py-2 rounded hover:bg-gray-700 ml-auto">Download CSV</button>
+            <button onClick={downloadAppCSV} disabled={isDownloading} className="bg-gray-800 text-white px-4 py-2 rounded hover:bg-gray-700 ml-auto disabled:bg-gray-400">
+              {isDownloading ? 'Downloading...' : 'Download CSV'}
+            </button>
           </div>
 
           {appLoading ? <div>Loading...</div> : (
