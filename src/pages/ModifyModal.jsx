@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import JobSnapshotDetails from './JobSnapshotDetails';
+import { generateAndUploadResume, getResumeUrl } from '../services/resume.api';
 
 const SMS_TEMPLATES = [
     {
@@ -424,6 +425,8 @@ const ModifyModal = ({ record, type, onClose, onSave }) => {
     const [location, setLocation] = useState(record.location ? [record.location.city, record.location.state, record.location.country].filter(Boolean).join(', ') : "");
     const [education, setEducation] = useState(typeof record.education === 'string' ? record.education : (record.education ? JSON.stringify(record.education, null, 2) : ""));
     const [experience, setExperience] = useState(typeof record.experience === 'string' ? record.experience : (record.experience ? JSON.stringify(record.experience, null, 2) : ""));
+    const [isGeneratingResume, setIsGeneratingResume] = useState(false);
+    const [resumeUrl, setResumeUrl] = useState(null);
 
     useEffect(() => {
         const fetchHistory = async () => {
@@ -443,6 +446,21 @@ const ModifyModal = ({ record, type, onClose, onSave }) => {
         };
         fetchHistory();
     }, [record._id, type]);
+
+    useEffect(() => {
+        const fetchResumeUrl = async () => {
+            // For ApplicationLevelFlow: userId field, for UserLevelFlow: _id field
+            const actualUserId = record?.userId || record?._id;
+            if (!actualUserId) return;
+            try {
+                const url = await getResumeUrl(actualUserId);
+                setResumeUrl(url);
+            } catch (error) {
+                console.error("Error fetching resume URL", error);
+            }
+        };
+        fetchResumeUrl();
+    }, [record?.userId, record?._id]);
 
     useEffect(() => {
         const fetchDropdownData = async () => {
@@ -498,6 +516,30 @@ const ModifyModal = ({ record, type, onClose, onSave }) => {
             experience: experience
         });
         onClose();
+    };
+
+    const handleGenerateResume = async () => {
+        // For ApplicationLevelFlow: userId field, for UserLevelFlow: _id field
+        const actualUserId = record?.userId || record?._id;
+        
+        if (!actualUserId) {
+            alert('User ID is required to generate resume');
+            return;
+        }
+
+        setIsGeneratingResume(true);
+        try {
+            const url = await generateAndUploadResume(actualUserId);
+            setResumeUrl(url);
+            alert('Resume generated and saved successfully!');
+            // Open the resume in a new tab
+            window.open(url, '_blank');
+        } catch (error) {
+            console.error('Error generating resume:', error);
+            alert(`Failed to generate resume: ${error.message}`);
+        } finally {
+            setIsGeneratingResume(false);
+        }
     };
 
     if (!record) return null;
@@ -637,6 +679,24 @@ const ModifyModal = ({ record, type, onClose, onSave }) => {
                                 <button onClick={() => setIsCommsModalOpen(true)} className="w-full bg-gray-600 text-white py-2 rounded hover:bg-gray-700">
                                     Send Comms
                                 </button>
+                            </div>
+
+                            <div className="flex gap-2 mt-2">
+                                <button 
+                                    onClick={handleGenerateResume} 
+                                    disabled={isGeneratingResume}
+                                    className="w-full bg-green-600 text-white py-2 rounded hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                                >
+                                    {isGeneratingResume ? 'Generating...' : 'Generate Resume'}
+                                </button>
+                                {resumeUrl && (
+                                    <button 
+                                        onClick={() => window.open(resumeUrl, '_blank')}
+                                        className="w-full bg-purple-600 text-white py-2 rounded hover:bg-purple-700"
+                                    >
+                                        View Resume
+                                    </button>
+                                )}
                             </div>
 
                             <div className="mt-10 flex-grow overflow-y-auto">
