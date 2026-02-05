@@ -320,7 +320,7 @@ export const Dashboard = () => {
 
         {/* Swapped Cards */}
         <TrendCard title="Users" fetchData={fetchTotalUsersTrend} dateRange={apiDateRange} color="#3b82f6" />
-        <TrendCard title="Jobs" fetchData={fetchTotalJobsTrend} dateRange={apiDateRange} color="#10b981" />
+        {/* <TrendCard title="Jobs" fetchData={fetchTotalJobsTrend} dateRange={apiDateRange} color="#10b981" /> */}
         <TopJobRolesCard dateRange={apiDateRange} />
         <TopTargetRolesCard dateRange={apiDateRange} />
         <TopApplicantsCard dateRange={apiDateRange} />
